@@ -51,7 +51,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 onClick={(e) => handleNav(e, 'home')}
                 className="flex items-center space-x-2"
               >
-                <img src="/logo.png" alt="SED Logo" className="h-14 w-auto" />
+                <img src="/logo-sed.png" alt="SED Logo" className="h-14 w-auto" />
                 <span className="text-xl font-display font-bold text-white tracking-tight ml-2">
                   SCHOLASTIC EDU. DEPOT
                 </span>

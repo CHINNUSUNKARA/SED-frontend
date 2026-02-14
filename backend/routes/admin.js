@@ -172,6 +172,7 @@ router.get('/courses', protect, authorize('admin'), async (req, res) => {
             students: 0,  // TODO: Calculate from enrollments
             rating: 0,  // TODO: Calculate from reviews
             slug: course.slug,
+            tagline: course.tagline || '',
             description: course.description || '',
             level: 'Beginner',  // Default level
             lessons: course.curriculum?.length || 0

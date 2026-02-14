@@ -43,6 +43,7 @@ export interface ScheduleEvent {
     type: 'Deadline' | 'Live Class' | 'Meeting';
     date: string;
     time: string;
+    instructor?: string;
     link?: string;
 }
 

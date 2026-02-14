@@ -1,5 +1,6 @@
-// Load environment variables first
-require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
+// Load environment variables first (Docker env vars take precedence)
+const envPath = require('path').resolve(__dirname, '.env');
+require('dotenv').config({ path: envPath, override: false });
 const path = require('path');
 const resolve = path.resolve;
 const join = path.join;
@@ -42,6 +43,9 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const adminUserRoutes = require('./routes/adminUserRoutes');
 const adminRoutes = require('./routes/admin');
 const contactRoutes = require('./routes/contactRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+const testimonialRoutes = require('./routes/testimonialRoutes');
+const { router: eventRoutes, broadcastEvent } = require('./routes/eventRoutes');
 
 // Models for seeding
 const Course = require('./models/Course.js');
@@ -108,7 +112,7 @@ const initialSuccessStories = [
 const app = express();
 // Enable trust proxy for Render (required for rate limiting to work correctly behind load balancers)
 app.set('trust proxy', 1);
-const port = 5000;
+const port = process.env.PORT || 5000;
 
 // ---------------- MONGODB CONNECTION ----------------
 const connectDB = async () => {
@@ -124,17 +128,18 @@ const connectDB = async () => {
     console.log('Attempting to connect to MongoDB...');
 
     // Connect with modern options
+    const sslEnabled = mongoUri.includes('ssl=true') || mongoUri.includes('mongodb+srv://');
     await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 10000, // 10 seconds timeout
       socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
       connectTimeoutMS: 10000, // Give up initial connection after 10 seconds
       retryWrites: true,
       w: 'majority',
-      ssl: true,
-      tls: true,
+      ssl: sslEnabled,
+      tls: sslEnabled,
       // Removed tlsInsecure as it conflicts with tlsAllowInvalidCertificates
-      tlsAllowInvalidCertificates: true, // Only for development
-      tlsAllowInvalidHostnames: true,    // Only for development
+      tlsAllowInvalidCertificates: false, // Set to false for production Atlas
+      tlsAllowInvalidHostnames: false,    // Set to false for production Atlas
       family: 4, // Use IPv4
       // Add server API for MongoDB 5.0+
       serverApi: {
@@ -384,16 +389,15 @@ app.use("/api/submissions", require('./routes/submissionsRoutes'));
 app.use("/api/success-stories", require('./routes/successStoryRoutes'));
 app.use("/api/contact", contactRoutes);
 app.use("/api/health", healthCheckRoutes);
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/testimonials", testimonialRoutes);
+app.use("/api/events", eventRoutes);
+
+// Make broadcastEvent available globally for course updates
+global.broadcastEvent = broadcastEvent;
 
 // ---------------- STATIC ASSETS ----------------
-// Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../client/dist')));
-
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
-app.get('*', (req, res) => {
-  res.sendFile(path.resolve(__dirname, '../client/dist', 'index.html'));
-});
+// Note: Frontend is served separately via Docker container
 
 // ---------------- ERROR HANDLER ----------------
 app.use('/api', notFound);

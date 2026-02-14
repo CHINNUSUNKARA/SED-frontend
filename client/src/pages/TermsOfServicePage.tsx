@@ -29,7 +29,7 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="flex items-center justify-center mb-6 mx-auto">
-            <img src="/logo.png" alt="SED Logo" className="h-16 w-auto" />
+            <img src="/logo-sed.png" alt="SED" className="h-10 w-auto" />
           </div>
           <h1 className="text-3xl md:text-5xl font-display font-bold text-slate-900 text-center mb-6">
             Terms of Service
@@ -42,7 +42,7 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 md:p-12">
-          
+
           <div className="prose prose-slate max-w-none">
             <p className="text-lg text-slate-600 mb-8 leading-relaxed">
               Welcome to <span className="font-semibold">Scholastic A Edu. Depot</span>. By accessing or using our website and services, you agree to be bound by these Terms of Service. If you disagree with any part of these terms, you may not access the service.
@@ -50,7 +50,7 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
 
             <Section title="1. Educational Services" icon={Book}>
               <p>
-                <div className="flex items-center gap-2 mb-2"><img src="/logo.png" alt="Scholastic Edu. Depot" className="h-6 w-auto" /><span className="font-semibold">Scholastic Edu. Depot</span></div> provides online educational courses, mentorship programs, and career placement services. We reserve the right to modify, suspend, or discontinue any part of our services at any time.
+                <div className="flex items-center gap-2 mb-2"><img src="/logo-sed.png" alt="Scholastic Edu. Depot" className="h-6 w-auto" /><span className="font-semibold">Scholastic Edu. Depot</span></div> provides online educational courses, mentorship programs, and career placement services. We reserve the right to modify, suspend, or discontinue any part of our services at any time.
               </p>
               <p>
                 We do not guarantee that completing a course will result in employment. Our placement services are on a "best effort" basis and depend on market conditions and your performance.
@@ -109,7 +109,7 @@ export const TermsOfServicePage: React.FC<TermsOfServicePageProps> = ({ onNaviga
 
             <Section title="Contact Us">
               <p>
-                If you have any questions about these Terms, please contact us at: <br/>
+                If you have any questions about these Terms, please contact us at: <br />
                 <a href="mailto:legal@sed-edu.com" className="text-brand-600 hover:text-brand-700 font-semibold">legal@sed-edu.com</a>
               </p>
             </Section>

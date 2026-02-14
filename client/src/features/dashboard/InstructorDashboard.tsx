@@ -20,6 +20,25 @@ interface InstructorDashboardProps {
 
 type InstructorTab = 'dashboard' | 'courses' | 'assignments' | 'students' | 'schedule' | 'settings' | 'edit-course' | 'course-analytics';
 
+interface NewCourse {
+    title: string;
+    description: string;
+    category: string;
+    level: string;
+    price: string;
+    duration: string;
+    image: string;
+    prerequisites: string;
+}
+
+interface InstructorEvent {
+    id: number;
+    title: string;
+    date: string;
+    time: string;
+    type: 'Deadline' | 'Live Class' | 'Meeting' | 'Task';
+}
+
 // --- Rich Text Editor Component ---
 interface RichTextEditorProps {
     label?: string;
@@ -113,7 +132,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onNavi
     const [stats, setStats] = useState<InstructorStats | null>(null);
     const [courses, setCourses] = useState<InstructorCourse[]>([]);
     const [students, setStudents] = useState<InstructorStudent[]>([]);
-    const [scheduleItems, setScheduleItems] = useState<any[]>([]);
+    const [scheduleItems, setScheduleItems] = useState<InstructorEvent[]>([]);
     const [assignments, setAssignments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -147,11 +166,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onNavi
     // Student List State
     const [studentSearch, setStudentSearch] = useState('');
     const [courseFilter, setCourseFilter] = useState('All');
-    const [selectedStudent, setSelectedStudent] = useState<any>(null);
+    const [selectedStudent, setSelectedStudent] = useState<InstructorStudent | null>(null);
 
     // Schedule State
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-    const [currentEvent, setCurrentEvent] = useState({
+    const [currentEvent, setCurrentEvent] = useState<InstructorEvent>({
         id: 0,
         title: '',
         date: '',
@@ -161,7 +180,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onNavi
 
     // Add Course Modal State
     const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
-    const [newCourse, setNewCourse] = useState({
+    const [newCourse, setNewCourse] = useState<NewCourse>({
         title: '',
         description: '',
         category: 'Development',
@@ -451,7 +470,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onNavi
                                 <select
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-brand-500 bg-white"
                                     value={currentEvent.type}
-                                    onChange={(e) => setCurrentEvent({ ...currentEvent, type: e.target.value })}
+                                    onChange={(e) => setCurrentEvent({ ...currentEvent, type: e.target.value as InstructorEvent['type'] })}
                                 >
                                     <option value="Live Class">Live Class</option>
                                     <option value="Meeting">Meeting</option>
@@ -638,7 +657,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onNavi
                 <div className="h-full flex flex-col">
                     <div className="p-6 flex items-center justify-between">
                         <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('home')}>
-                            <img src="/logo.png" alt="SED" className="w-8 h-8 rounded-lg" />
+                            <img src="/logo-sed.png" alt="SED" className="w-8 h-8 rounded-lg" />
                             <span className="text-xl font-display font-bold">Instructor<span className="text-brand-500">.</span></span>
                         </div>
                         <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400">

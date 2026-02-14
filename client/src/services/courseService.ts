@@ -35,7 +35,7 @@ export interface CourseDetail extends CourseSummary {
 }
 
 export const fetchCourses = async (): Promise<CourseSummary[]> => {
-    const res: AxiosResponse<any[]> = await api.get('/courses');
+  const res: AxiosResponse<any[]> = await api.get('/courses');
   const mapped: CourseSummary[] = res.data.map((doc) => {
     const amount = doc.pricing?.amount || 0;
     return {

@@ -163,7 +163,7 @@ export const GetStartedPage: React.FC<GetStartedPageProps> = ({ onNavigate }) =>
         <div className="relative z-10 w-full">
           <div className="flex flex-col items-center mb-12 w-full">
             <img
-              src="/logo.png"
+              src="/logo-sed.png"
               alt="Scholastic Edu. Depot"
               className="h-24 w-auto mb-4"
             />

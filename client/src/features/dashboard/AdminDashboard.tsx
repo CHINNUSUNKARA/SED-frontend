@@ -41,6 +41,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newCourse, setNewCourse] = useState({
     title: '',
+    tagline: '',
     description: '',
     instructor: '',
     category: 'Development',
@@ -48,7 +49,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     duration: '',
     level: 'Beginner',
     image: '',
-    lessons: 0
+    lessons: 1
   });
 
   // Edit Course Modal State
@@ -115,6 +116,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       invoicePrefix: 'SED-INV-',
     }
   });
+
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Fetch settings separately
   useEffect(() => {
@@ -307,11 +310,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     try {
       const slug = newCourse.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const coursePayload = {
-        ...newCourse,
+        name: newCourse.title,
         slug: slug,
-        price: parseFloat(newCourse.price.replace(/[^0-9.]/g, '')) || 0,
-        rating: 0,
-        students: 0,
+        tagline: newCourse.tagline,
+        description: newCourse.description,
+        instructor: newCourse.instructor,
+        category: newCourse.category,
+        pricing: {
+          amount: parseFloat(newCourse.price.replace(/[^0-9.]/g, '')) || 0,
+          currency: 'INR'
+        },
+        duration: newCourse.duration,
+        level: newCourse.level,
+        imageUrl: newCourse.image,
+        lessons: newCourse.lessons,
       };
 
       await adminService.createCourse(coursePayload);
@@ -331,6 +343,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       // Reset Form
       setNewCourse({
         title: '',
+        tagline: '',
         description: '',
         instructor: '',
         category: 'Development',
@@ -338,11 +351,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         duration: '',
         level: 'Beginner',
         image: '',
-        lessons: 0
+        lessons: 1
       });
     } catch (err: any) {
       console.error("Failed to add course:", err);
       alert("Failed to add course: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleDeleteCourse = async (id: string | number) => {
+    if (window.confirm('Are you sure you want to delete this course?')) {
+      try {
+        await adminService.deleteCourses([id]);
+
+        // Refresh courses
+        const coursesResponse = await adminService.getAllCourses();
+        if (coursesResponse.success) {
+          setCoursesList(coursesResponse.data);
+        } else if (Array.isArray(coursesResponse)) {
+          setCoursesList(coursesResponse);
+        } else {
+          setCoursesList(prev => prev.filter(c => c.id !== id));
+        }
+
+        alert('Course deleted successfully.');
+      } catch (err) {
+        console.error("Failed to delete course", err);
+        alert("Failed to delete course");
+      }
     }
   };
 
@@ -363,6 +399,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     const errors: string[] = [];
 
     if (!editingCourse.title?.trim()) errors.push("Course Title is required");
+    if (!editingCourse.tagline?.trim()) errors.push("Tagline is required");
     if (!editingCourse.description?.trim()) errors.push("Description is required");
     if (!editingCourse.instructor?.trim()) errors.push("Instructor is required");
     if (!editingCourse.duration?.trim()) errors.push("Duration is required");
@@ -382,17 +419,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       return;
     }
 
+    setIsUpdating(true);
     try {
       const coursePayload = {
-        title: editingCourse.title,
+        name: editingCourse.title,
+        tagline: editingCourse.tagline || '',
         description: editingCourse.description,
         instructor: editingCourse.instructor,
         category: editingCourse.category,
-        price: parseFloat(editingCourse.price.toString().replace(/[^0-9.]/g, '')) || 0,
+        pricing: {
+          amount: parseFloat(editingCourse.price.toString().replace(/[^0-9.]/g, '')) || 0,
+          currency: 'INR'
+        },
         duration: editingCourse.duration,
         level: editingCourse.level || 'Beginner',
-        image: editingCourse.image,
-        lessons: editingCourse.lessons || 0
+        imageUrl: editingCourse.image,
+        lessons: editingCourse.lessons || 0,
+        slug: editingCourse.slug
       };
 
       await adminService.updateCourse(editingCourse.slug, coursePayload);
@@ -409,6 +452,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     } catch (err: any) {
       console.error("Failed to update course:", err);
       alert("Failed to update course: " + (err.response?.data?.message || err.message));
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -614,6 +659,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 </div>
 
                 <div className="col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tagline <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                    placeholder="Short course tagline..."
+                    value={newCourse.tagline}
+                    onChange={e => setNewCourse({ ...newCourse, tagline: e.target.value })}
+                  />
+                </div>
+
+                <div className="col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Description <span className="text-red-500">*</span></label>
                   <textarea
                     required
@@ -746,6 +803,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                 </div>
 
                 <div className="col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tagline <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                    placeholder="Short course tagline..."
+                    value={editingCourse.tagline || ''}
+                    onChange={e => setEditingCourse({ ...editingCourse, tagline: e.target.value })}
+                  />
+                </div>
+
+                <div className="col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Description <span className="text-red-500">*</span></label>
                   <textarea
                     required
@@ -759,14 +828,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Instructor <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
+                  <select
                     required
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                    placeholder="Instructor Name"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
                     value={editingCourse.instructor || ''}
                     onChange={e => setEditingCourse({ ...editingCourse, instructor: e.target.value })}
-                  />
+                  >
+                    <option value="">Select Instructor</option>
+                    <option value="Unknown">Unknown (Default)</option>
+                    {instructors.map(inst => (
+                      <option key={inst._id || inst.id} value={inst.name}>{inst.name}</option>
+                    ))}
+                    {!instructors.some(i => i.name === editingCourse.instructor) && editingCourse.instructor && editingCourse.instructor !== 'Unknown' && (
+                      <option value={editingCourse.instructor}>{editingCourse.instructor}</option>
+                    )}
+                  </select>
                 </div>
 
                 <div>
@@ -843,8 +919,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               </div>
 
               <div className="flex justify-end gap-3 pt-8 mt-2">
-                <Button type="button" variant="outline" onClick={() => { setIsEditModalOpen(false); setEditingCourse(null); }}>Cancel</Button>
-                <Button type="submit">Update Course</Button>
+                <Button type="button" variant="outline" onClick={() => { setIsEditModalOpen(false); setEditingCourse(null); }} disabled={isUpdating}>Cancel</Button>
+                <Button type="submit" disabled={isUpdating}>
+                  {isUpdating ? <span className="flex items-center gap-2"><RefreshCw size={16} className="animate-spin" /> Updating...</span> : 'Update Course'}
+                </Button>
               </div>
             </form>
           </div>
@@ -1092,7 +1170,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         <div className="h-full flex flex-col">
           <div className="p-6 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="SED" className="w-8 h-8 rounded-lg" />
+              <img src="/logo-sed.png" alt="SED" className="w-8 h-8 rounded-lg" />
               <span className="text-xl font-display font-bold">Admin<span className="text-brand-500">.</span></span>
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400">
@@ -1493,34 +1571,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
                 {/* Custom CSS Bar Chart */}
                 <div className="h-64 flex items-end justify-between gap-2 sm:gap-4">
-                  <div className="h-64 flex items-end justify-between gap-2 sm:gap-4">
-                    {analyticsData?.revenueTrends && analyticsData.revenueTrends.length > 0 ? (() => {
-                      const maxRevenue = Math.max(...analyticsData.revenueTrends.map((d: any) => d.revenue));
-                      return analyticsData.revenueTrends.map((data: any, i: number) => {
-                        const heightPercent = maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
-                        const monthName = new Date(0, data._id.month - 1).toLocaleString('default', { month: 'short' });
-                        return (
-                          <div key={i} className="w-full flex flex-col justify-end group cursor-pointer relative">
-                            <div className="w-full bg-brand-100 rounded-t-sm hover:bg-brand-200 transition-all relative overflow-hidden" style={{ height: '100%' }}>
-                              <div
-                                style={{ height: `${heightPercent}%` }}
-                                className="absolute bottom-0 w-full bg-brand-600 rounded-t-sm group-hover:bg-brand-500 transition-colors"
-                              ></div>
-                            </div>
-                            {/* Tooltip */}
-                            <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-800 text-white text-xs py-1 px-2 rounded pointer-events-none transition-opacity whitespace-nowrap z-10">
-                              ₹{data.revenue.toLocaleString('en-IN')}
-                            </div>
-                            <span className="text-xs text-slate-400 text-center mt-3 font-medium">{monthName}</span>
+                  {analyticsData?.revenueTrends && analyticsData.revenueTrends.length > 0 ? (() => {
+                    const maxRevenue = Math.max(...analyticsData.revenueTrends.map((d: any) => d.revenue));
+                    return analyticsData.revenueTrends.map((data: any, i: number) => {
+                      const heightPercent = maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
+                      const monthName = new Date(0, data._id.month - 1).toLocaleString('default', { month: 'short' });
+                      return (
+                        <div key={i} className="w-full flex flex-col justify-end group cursor-pointer relative">
+                          <div className="w-full bg-brand-100 rounded-t-sm hover:bg-brand-200 transition-all relative overflow-hidden" style={{ height: '100%' }}>
+                            <div
+                              style={{ height: `${heightPercent}%` }}
+                              className="absolute bottom-0 w-full bg-brand-600 rounded-t-sm group-hover:bg-brand-500 transition-colors"
+                            ></div>
                           </div>
-                        );
-                      });
-                    })() : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-400">
-                        No revenue data available for recent months.
-                      </div>
-                    )}
-                  </div>
+                          {/* Tooltip */}
+                          <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-800 text-white text-xs py-1 px-2 rounded pointer-events-none transition-opacity whitespace-nowrap z-10">
+                            ₹{data.revenue.toLocaleString('en-IN')}
+                          </div>
+                          <span className="text-xs text-slate-400 text-center mt-3 font-medium">{monthName}</span>
+                        </div>
+                      );
+                    });
+                  })() : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400">
+                      No revenue data available for recent months.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1732,11 +1808,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                             >
                               <Edit size={18} />
                             </button>
-                            <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Course" onClick={() => {
-                              if (window.confirm('Delete this course?')) {
-                                setCoursesList(prev => prev.filter(c => c.id !== course.id));
-                              }
-                            }}>
+                            <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Course" onClick={() => handleDeleteCourse(course.id)}>
                               <Trash2 size={18} />
                             </button>
                           </div>
@@ -1819,436 +1891,431 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           )}
 
           {/* Students Tab */}
-          {
-            activeTab === 'students' && (
-              <div className="animate-fade-in-up space-y-8">
-                {/* Student Stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-slate-500 font-medium text-sm">Total Students</h3>
-                      <div className="p-2 bg-brand-50 rounded-lg text-brand-600"><Users size={20} /></div>
-                    </div>
-                    <p className="text-3xl font-bold text-slate-900">{students.length.toLocaleString()}</p>
-                    <p className="text-green-600 text-xs font-bold mt-1 flex items-center gap-1"><TrendingUp size={12} /> +15% this month</p>
+          {activeTab === 'students' && (
+            <div className="animate-fade-in-up space-y-8">
+              {/* Student Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-slate-500 font-medium text-sm">Total Students</h3>
+                    <div className="p-2 bg-brand-50 rounded-lg text-brand-600"><Users size={20} /></div>
                   </div>
-                  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-slate-500 font-medium text-sm">Active Learners</h3>
-                      <div className="p-2 bg-green-50 rounded-lg text-green-600"><BookOpen size={20} /></div>
-                    </div>
-                    <p className="text-3xl font-bold text-slate-900">
-                      {students.filter(s => s.enrolledCourses?.length > 0).length.toLocaleString()}
-                    </p>
-                    <p className="text-green-600 text-xs font-bold mt-1 flex items-center gap-1"><CheckCircle size={12} />
-                      {students.length > 0 ? Math.round((students.filter(s => s.enrolledCourses?.length > 0).length / students.length) * 100) : 0}% engagement
-                    </p>
+                  <p className="text-3xl font-bold text-slate-900">{students.length.toLocaleString()}</p>
+                  <p className="text-green-600 text-xs font-bold mt-1 flex items-center gap-1"><TrendingUp size={12} /> +15% this month</p>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-slate-500 font-medium text-sm">Active Learners</h3>
+                    <div className="p-2 bg-green-50 rounded-lg text-green-600"><BookOpen size={20} /></div>
                   </div>
-                  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-slate-500 font-medium text-sm">Course Completion</h3>
-                      <div className="p-2 bg-orange-50 rounded-lg text-orange-600"><Award size={20} /></div>
+                  <p className="text-3xl font-bold text-slate-900">
+                    {students.filter(s => s.enrolledCourses?.length > 0).length.toLocaleString()}
+                  </p>
+                  <p className="text-green-600 text-xs font-bold mt-1 flex items-center gap-1"><CheckCircle size={12} />
+                    {students.length > 0 ? Math.round((students.filter(s => s.enrolledCourses?.length > 0).length / students.length) * 100) : 0}% engagement
+                  </p>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-slate-500 font-medium text-sm">Course Completion</h3>
+                    <div className="p-2 bg-orange-50 rounded-lg text-orange-600"><Award size={20} /></div>
+                  </div>
+                  <p className="text-3xl font-bold text-slate-900">
+                    {(() => {
+                      const totalProgress = students.reduce((acc, s) => {
+                        if (!s.enrolledCourses || s.enrolledCourses.length === 0) return acc;
+                        const studentAvg = s.enrolledCourses.reduce((sum: number, c: any) => sum + (c.progress || 0), 0) / s.enrolledCourses.length;
+                        return acc + studentAvg;
+                      }, 0);
+                      return students.length > 0 ? Math.round(totalProgress / students.length) : 0;
+                    })()}%
+                  </p>
+                  <p className="text-slate-400 text-xs mt-1">Avg. completion rate</p>
+                </div>
+              </div>
+
+              {/* Students Table */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                  {selectedStudentIds.length > 0 ? (
+                    <div className="flex items-center gap-4 w-full md:w-auto bg-brand-50 p-2 rounded-lg border border-brand-100">
+                      <span className="text-brand-700 font-medium text-sm pl-2">{selectedStudentIds.length} Selected</span>
+                      <div className="h-4 w-px bg-brand-200"></div>
+                      <div className="flex gap-2">
+                        <button onClick={handleBulkEmailStudents} className="px-3 py-1.5 text-xs font-medium bg-white text-slate-600 border border-slate-200 rounded-md hover:text-brand-600 hover:border-brand-200 transition-colors flex items-center gap-1">
+                          <Mail size={14} /> Email
+                        </button>
+                        <button onClick={handleBulkSuspendStudents} className="px-3 py-1.5 text-xs font-medium bg-white text-orange-600 border border-slate-200 rounded-md hover:border-orange-200 hover:bg-orange-50 transition-colors flex items-center gap-1">
+                          <Ban size={14} /> Suspend
+                        </button>
+                        <button onClick={handleBulkDeleteStudents} className="px-3 py-1.5 text-xs font-medium bg-white text-red-600 border border-slate-200 rounded-md hover:border-red-200 hover:bg-red-50 transition-colors flex items-center gap-1">
+                          <Trash2 size={14} /> Delete
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-3xl font-bold text-slate-900">
-                      {(() => {
-                        const totalProgress = students.reduce((acc, s) => {
-                          if (!s.enrolledCourses || s.enrolledCourses.length === 0) return acc;
-                          const studentAvg = s.enrolledCourses.reduce((sum: number, c: any) => sum + (c.progress || 0), 0) / s.enrolledCourses.length;
-                          return acc + studentAvg;
-                        }, 0);
-                        return students.length > 0 ? Math.round(totalProgress / students.length) : 0;
-                      })()}%
-                    </p>
-                    <p className="text-slate-400 text-xs mt-1">Avg. completion rate</p>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-center">
+                      <h3 className="text-xl font-bold text-slate-900">Student Directory</h3>
+                      <div className="hidden md:block w-px h-6 bg-slate-200"></div>
+                      {/* Filter Dropdown */}
+                      <div className="relative w-full sm:w-40">
+                        <select
+                          value={studentStatusFilter}
+                          onChange={(e) => setStudentStatusFilter(e.target.value)}
+                          className="appearance-none w-full bg-slate-50 border border-slate-200 text-slate-700 py-2 pl-3 pr-8 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer font-medium"
+                        >
+                          <option value="All">All Status</option>
+                          <option value="Active">Active</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+                          <ChevronLeft size={14} className="rotate-[-90deg]" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 w-full md:w-auto">
+                    <div className="relative flex-grow md:flex-grow-0">
+                      <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search students..."
+                        className="w-full md:w-64 pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                        value={studentSearch}
+                        onChange={(e) => setStudentSearch(e.target.value)}
+                      />
+                    </div>
+                    <Button variant="outline" className="hidden sm:flex"><Download size={18} className="mr-2" /> Export</Button>
                   </div>
                 </div>
 
-                {/* Students Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                  <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                    {selectedStudentIds.length > 0 ? (
-                      <div className="flex items-center gap-4 w-full md:w-auto bg-brand-50 p-2 rounded-lg border border-brand-100">
-                        <span className="text-brand-700 font-medium text-sm pl-2">{selectedStudentIds.length} Selected</span>
-                        <div className="h-4 w-px bg-brand-200"></div>
-                        <div className="flex gap-2">
-                          <button onClick={handleBulkEmailStudents} className="px-3 py-1.5 text-xs font-medium bg-white text-slate-600 border border-slate-200 rounded-md hover:text-brand-600 hover:border-brand-200 transition-colors flex items-center gap-1">
-                            <Mail size={14} /> Email
-                          </button>
-                          <button onClick={handleBulkSuspendStudents} className="px-3 py-1.5 text-xs font-medium bg-white text-orange-600 border border-slate-200 rounded-md hover:border-orange-200 hover:bg-orange-50 transition-colors flex items-center gap-1">
-                            <Ban size={14} /> Suspend
-                          </button>
-                          <button onClick={handleBulkDeleteStudents} className="px-3 py-1.5 text-xs font-medium bg-white text-red-600 border border-slate-200 rounded-md hover:border-red-200 hover:bg-red-50 transition-colors flex items-center gap-1">
-                            <Trash2 size={14} /> Delete
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-center">
-                        <h3 className="text-xl font-bold text-slate-900">Student Directory</h3>
-                        <div className="hidden md:block w-px h-6 bg-slate-200"></div>
-                        {/* Filter Dropdown */}
-                        <div className="relative w-full sm:w-40">
-                          <select
-                            value={studentStatusFilter}
-                            onChange={(e) => setStudentStatusFilter(e.target.value)}
-                            className="appearance-none w-full bg-slate-50 border border-slate-200 text-slate-700 py-2 pl-3 pr-8 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer font-medium"
-                          >
-                            <option value="All">All Status</option>
-                            <option value="Active">Active</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Inactive">Inactive</option>
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
-                            <ChevronLeft size={14} className="rotate-[-90deg]" />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-3 w-full md:w-auto">
-                      <div className="relative flex-grow md:flex-grow-0">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="Search students..."
-                          className="w-full md:w-64 pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none"
-                          value={studentSearch}
-                          onChange={(e) => setStudentSearch(e.target.value)}
-                        />
-                      </div>
-                      <Button variant="outline" className="hidden sm:flex"><Download size={18} className="mr-2" /> Export</Button>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-slate-50 text-left">
-                        <tr>
-                          <th className="px-6 py-4 w-10">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 text-left">
+                      <tr>
+                        <th className="px-6 py-4 w-10">
+                          <input
+                            type="checkbox"
+                            className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 h-4 w-4 cursor-pointer"
+                            checked={selectedStudentIds.length === filteredStudents.length && filteredStudents.length > 0}
+                            onChange={toggleSelectAllStudents}
+                          />
+                        </th>
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Student Name</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Enrolled Course</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Progress</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Join Date</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredStudents.length > 0 ? filteredStudents.map((student) => (
+                        <tr
+                          key={student.id}
+                          className={`hover:bg-slate-50 transition-colors cursor-pointer ${selectedStudentIds.includes(student.id) ? 'bg-brand-50/30' : ''}`}
+                          onClick={() => setSelectedStudent(student)}
+                        >
+                          <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
                               className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 h-4 w-4 cursor-pointer"
-                              checked={selectedStudentIds.length === filteredStudents.length && filteredStudents.length > 0}
-                              onChange={toggleSelectAllStudents}
+                              checked={selectedStudentIds.includes(student.id)}
+                              onChange={() => toggleSelectStudent(student.id)}
                             />
-                          </th>
-                          <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Student Name</th>
-                          <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Enrolled Course</th>
-                          <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Progress</th>
-                          <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Join Date</th>
-                          <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-sm border border-brand-200">
+                                {student.avatar}
+                              </div>
+                              <div>
+                                <div className="font-bold text-slate-900 text-sm hover:text-brand-600 transition-colors">{student.name}</div>
+                                <div className="text-xs text-slate-500">{student.email}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-600 font-medium max-w-xs truncate" title={student.enrolledCourses?.[0]?.courseSlug || "No active course"}>
+                            {student.enrolledCourses?.[0]?.courseSlug ? student.enrolledCourses[0].courseSlug.replace(/-/g, ' ') : "Not Enrolled"}
+                          </td>
+                          <td className="px-6 py-4 w-32">
+                            <div className="w-full bg-slate-200 rounded-full h-2 mb-1">
+                              <div
+                                className={`h-2 rounded-full ${student.enrolledCourses?.[0]?.progress === 100 ? 'bg-green-500' : 'bg-brand-500'}`}
+                                style={{ width: `${student.enrolledCourses?.[0]?.progress || 0}%` }}
+                              ></div>
+                            </div>
+                            <div className="text-xs text-slate-500 text-right">{student.enrolledCourses?.[0]?.progress || 0}%</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <StatusBadge status={student.status || "Active"} />
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-500">
+                            {student.createdAt ? new Date(student.createdAt).toLocaleDateString() : "N/A"}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => setSelectedStudent(student)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="View Profile">
+                                <Users size={16} />
+                              </button>
+                              <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors" title="Message">
+                                <Mail size={16} />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {filteredStudents.length > 0 ? filteredStudents.map((student) => (
-                          <tr
-                            key={student.id}
-                            className={`hover:bg-slate-50 transition-colors cursor-pointer ${selectedStudentIds.includes(student.id) ? 'bg-brand-50/30' : ''}`}
-                            onClick={() => setSelectedStudent(student)}
-                          >
-                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 h-4 w-4 cursor-pointer"
-                                checked={selectedStudentIds.includes(student.id)}
-                                onChange={() => toggleSelectStudent(student.id)}
-                              />
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-bold text-sm border border-brand-200">
-                                  {student.avatar}
-                                </div>
-                                <div>
-                                  <div className="font-bold text-slate-900 text-sm hover:text-brand-600 transition-colors">{student.name}</div>
-                                  <div className="text-xs text-slate-500">{student.email}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-slate-600 font-medium max-w-xs truncate" title={student.enrolledCourses?.[0]?.courseSlug || "No active course"}>
-                              {student.enrolledCourses?.[0]?.courseSlug ? student.enrolledCourses[0].courseSlug.replace(/-/g, ' ') : "Not Enrolled"}
-                            </td>
-                            <td className="px-6 py-4 w-32">
-                              <div className="w-full bg-slate-200 rounded-full h-2 mb-1">
-                                <div
-                                  className={`h-2 rounded-full ${student.enrolledCourses?.[0]?.progress === 100 ? 'bg-green-500' : 'bg-brand-500'}`}
-                                  style={{ width: `${student.enrolledCourses?.[0]?.progress || 0}%` }}
-                                ></div>
-                              </div>
-                              <div className="text-xs text-slate-500 text-right">{student.enrolledCourses?.[0]?.progress || 0}%</div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <StatusBadge status={student.status || "Active"} />
-                            </td>
-                            <td className="px-6 py-4 text-sm text-slate-500">
-                              {student.createdAt ? new Date(student.createdAt).toLocaleDateString() : "N/A"}
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => setSelectedStudent(student)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="View Profile">
-                                  <Users size={16} />
-                                </button>
-                                <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors" title="Message">
-                                  <Mail size={16} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        )) : (
-                          <tr>
-                            <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                              <div className="flex flex-col items-center">
-                                <Search size={48} className="text-slate-200 mb-4" />
-                                <p className="text-lg font-medium text-slate-700">No students found</p>
-                                <p className="text-sm">Try adjusting your search terms or filters.</p>
-                                <Button variant="outline" className="mt-4" onClick={() => { setStudentSearch(''); setStudentStatusFilter('All'); }}>Clear Filters</Button>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                      )) : (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                            <div className="flex flex-col items-center">
+                              <Search size={48} className="text-slate-200 mb-4" />
+                              <p className="text-lg font-medium text-slate-700">No students found</p>
+                              <p className="text-sm">Try adjusting your search terms or filters.</p>
+                              <Button variant="outline" className="mt-4" onClick={() => { setStudentSearch(''); setStudentStatusFilter('All'); }}>Clear Filters</Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
 
-                  {/* Pagination */}
-                  <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-                    <span className="text-sm text-slate-500">
-                      Showing <span className="font-bold text-slate-900">{filteredStudents.length}</span> results
-                    </span>
-                    <div className="flex gap-2">
-                      <button disabled className="p-2 rounded-lg border border-slate-200 bg-white text-slate-300 cursor-not-allowed">
-                        <ChevronLeft size={16} />
-                      </button>
-                      <button className="px-3 py-1 rounded-lg border border-brand-500 bg-brand-50 text-brand-600 font-bold text-sm">1</button>
-                      <button className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-medium">2</button>
-                      <button className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-medium">3</button>
-                      <span className="px-2 py-1 text-slate-400">...</span>
-                      <button className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors">
-                        <ChevronRight size={16} />
-                      </button>
-                    </div>
+                {/* Pagination */}
+                <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <span className="text-sm text-slate-500">
+                    Showing <span className="font-bold text-slate-900">{filteredStudents.length}</span> results
+                  </span>
+                  <div className="flex gap-2">
+                    <button disabled className="p-2 rounded-lg border border-slate-200 bg-white text-slate-300 cursor-not-allowed">
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button className="px-3 py-1 rounded-lg border border-brand-500 bg-brand-50 text-brand-600 font-bold text-sm">1</button>
+                    <button className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-medium">2</button>
+                    <button className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-medium">3</button>
+                    <span className="px-2 py-1 text-slate-400">...</span>
+                    <button className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition-colors">
+                      <ChevronRight size={16} />
+                    </button>
                   </div>
                 </div>
               </div>
-            )
-          }
+            </div>
+          )}
 
           {/* Platform Settings Tab */}
-          {
-            activeTab === 'settings' && (
-              <div className="animate-fade-in-up space-y-8 pb-12 max-w-7xl mx-auto">
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-4 pb-6 border-b border-slate-200/60">
-                  <div>
-                    <h3 className="text-3xl font-bold text-slate-900 tracking-tight">Platform Settings</h3>
-                    <p className="text-slate-500 mt-2 text-lg">Manage your application configuration, security, and preferences.</p>
+          {activeTab === 'settings' && (
+            <div className="animate-fade-in-up space-y-8 pb-12 max-w-7xl mx-auto">
+              {/* Header Section */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-4 pb-6 border-b border-slate-200/60">
+                <div>
+                  <h3 className="text-3xl font-bold text-slate-900 tracking-tight">Platform Settings</h3>
+                  <p className="text-slate-500 mt-2 text-lg">Manage your application configuration, security, and preferences.</p>
+                </div>
+                <Button id="save-settings-btn" onClick={handleSaveSettings} className="shadow-lg shadow-brand-500/20 hover:shadow-brand-500/40 transition-all px-6">
+                  <Save size={18} className="mr-2" /> Save Changes
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+                {/* General Settings */}
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl ring-4 ring-blue-50/50"><Globe size={24} /></div>
+                    <div>
+                      <h4 className="text-xl font-bold text-slate-900">General Information</h4>
+                      <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-wider">Platform Basics</p>
+                    </div>
                   </div>
-                  <Button id="save-settings-btn" onClick={handleSaveSettings} className="shadow-lg shadow-brand-500/20 hover:shadow-brand-500/40 transition-all px-6">
-                    <Save size={18} className="mr-2" /> Save Changes
-                  </Button>
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Platform Name</label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-700"
+                        value={settingsData.general.platformName}
+                        onChange={(e) => handleSettingChange('general', 'platformName', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Support Email</label>
+                      <input
+                        type="email"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-700"
+                        value={settingsData.general.supportEmail}
+                        onChange={(e) => handleSettingChange('general', 'supportEmail', e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-xl border border-slate-100">
+                      <div>
+                        <p className="font-bold text-slate-900 text-sm">Maintenance Mode</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Disable access for users</p>
+                      </div>
+                      <button
+                        onClick={() => handleSettingChange('general', 'maintenanceMode', !settingsData.general.maintenanceMode)}
+                        className={`w-12 h-7 rounded-full transition-all duration-300 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 ${settingsData.general.maintenanceMode ? 'bg-brand-600' : 'bg-slate-300'}`}
+                      >
+                        <div className={`w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-all duration-300 ${settingsData.general.maintenanceMode ? 'left-6' : 'left-1'}`}></div>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-xl border border-slate-100">
+                      <div>
+                        <p className="font-bold text-slate-900 text-sm">Public Registration</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Allow new signups</p>
+                      </div>
+                      <button
+                        onClick={() => handleSettingChange('general', 'publicRegistration', !settingsData.general.publicRegistration)}
+                        className={`w-12 h-7 rounded-full transition-all duration-300 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 ${settingsData.general.publicRegistration ? 'bg-brand-600' : 'bg-slate-300'}`}
+                      >
+                        <div className={`w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-all duration-300 ${settingsData.general.publicRegistration ? 'left-6' : 'left-1'}`}></div>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
-                  {/* General Settings */}
-                  <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center gap-4 mb-8">
-                      <div className="p-3 bg-blue-50 text-blue-600 rounded-xl ring-4 ring-blue-50/50"><Globe size={24} /></div>
-                      <div>
-                        <h4 className="text-xl font-bold text-slate-900">General Information</h4>
-                        <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-wider">Platform Basics</p>
-                      </div>
-                    </div>
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Platform Name</label>
-                        <input
-                          type="text"
-                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-700"
-                          value={settingsData.general.platformName}
-                          onChange={(e) => handleSettingChange('general', 'platformName', e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Support Email</label>
-                        <input
-                          type="email"
-                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-700"
-                          value={settingsData.general.supportEmail}
-                          onChange={(e) => handleSettingChange('general', 'supportEmail', e.target.value)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-xl border border-slate-100">
-                        <div>
-                          <p className="font-bold text-slate-900 text-sm">Maintenance Mode</p>
-                          <p className="text-xs text-slate-500 mt-0.5">Disable access for users</p>
-                        </div>
-                        <button
-                          onClick={() => handleSettingChange('general', 'maintenanceMode', !settingsData.general.maintenanceMode)}
-                          className={`w-12 h-7 rounded-full transition-all duration-300 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 ${settingsData.general.maintenanceMode ? 'bg-brand-600' : 'bg-slate-300'}`}
-                        >
-                          <div className={`w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-all duration-300 ${settingsData.general.maintenanceMode ? 'left-6' : 'left-1'}`}></div>
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between py-3 px-4 bg-slate-50 rounded-xl border border-slate-100">
-                        <div>
-                          <p className="font-bold text-slate-900 text-sm">Public Registration</p>
-                          <p className="text-xs text-slate-500 mt-0.5">Allow new signups</p>
-                        </div>
-                        <button
-                          onClick={() => handleSettingChange('general', 'publicRegistration', !settingsData.general.publicRegistration)}
-                          className={`w-12 h-7 rounded-full transition-all duration-300 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 ${settingsData.general.publicRegistration ? 'bg-brand-600' : 'bg-slate-300'}`}
-                        >
-                          <div className={`w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-all duration-300 ${settingsData.general.publicRegistration ? 'left-6' : 'left-1'}`}></div>
-                        </button>
-                      </div>
+                {/* Security Settings */}
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-red-50 text-red-600 rounded-xl ring-4 ring-red-50/50"><Shield size={24} /></div>
+                    <div>
+                      <h4 className="text-xl font-bold text-slate-900">Security</h4>
+                      <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-wider">Access Control</p>
                     </div>
                   </div>
-
-                  {/* Security Settings */}
-                  <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center gap-4 mb-8">
-                      <div className="p-3 bg-red-50 text-red-600 rounded-xl ring-4 ring-red-50/50"><Shield size={24} /></div>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between py-3 px-4 bg-red-50/50 rounded-xl border border-red-100">
                       <div>
-                        <h4 className="text-xl font-bold text-slate-900">Security</h4>
-                        <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-wider">Access Control</p>
+                        <p className="font-bold text-slate-900 text-sm">Two-Factor Auth (2FA)</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Recommended for admins</p>
+                      </div>
+                      <button
+                        onClick={() => handleSettingChange('security', 'twoFactorAuth', !settingsData.security.twoFactorAuth)}
+                        className={`w-12 h-7 rounded-full transition-all duration-300 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${settingsData.security.twoFactorAuth ? 'bg-red-600' : 'bg-slate-300'}`}
+                      >
+                        <div className={`w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-all duration-300 ${settingsData.security.twoFactorAuth ? 'left-6' : 'left-1'}`}></div>
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Minimum Password Length</label>
+                      <div className="relative">
+                        <select
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none appearance-none font-medium text-slate-700"
+                          value={settingsData.security.minPasswordLength}
+                          onChange={(e) => handleSettingChange('security', 'minPasswordLength', e.target.value)}
+                        >
+                          <option value="6">6 Characters</option>
+                          <option value="8">8 Characters</option>
+                          <option value="12">12 Characters (Recommended)</option>
+                        </select>
+                        <ChevronLeft className="absolute right-4 top-1/2 -translate-y-1/2 rotate-[-90deg] text-slate-400 pointer-events-none" size={16} />
                       </div>
                     </div>
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between py-3 px-4 bg-red-50/50 rounded-xl border border-red-100">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Session Timeout (Minutes)</label>
+                      <input
+                        type="number"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-700"
+                        value={settingsData.security.sessionTimeout}
+                        onChange={(e) => handleSettingChange('security', 'sessionTimeout', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notification Settings */}
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-yellow-50 text-yellow-600 rounded-xl ring-4 ring-yellow-50/50"><Bell size={24} /></div>
+                    <div>
+                      <h4 className="text-xl font-bold text-slate-900">Notifications</h4>
+                      <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-wider">Alert Preferences</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    {[
+                      { label: 'Email Alerts', sub: 'Receive daily summary emails', key: 'emailAlerts' },
+                      { label: 'New Student Notification', sub: 'When a new student registers', key: 'newStudentNotify' },
+                      { label: 'Instructor Application', sub: 'When an instructor applies', key: 'instructorAppNotify' },
+                      { label: 'Marketing Emails', sub: 'Receive tips and product updates', key: 'marketingEmails' }
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between py-3 px-4 bg-slate-50/50 rounded-xl border border-slate-50 hover:bg-slate-50 hover:border-slate-100 transition-colors">
                         <div>
-                          <p className="font-bold text-slate-900 text-sm">Two-Factor Auth (2FA)</p>
-                          <p className="text-xs text-slate-500 mt-0.5">Recommended for admins</p>
+                          <p className="font-bold text-slate-900 text-sm">{item.label}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{item.sub}</p>
                         </div>
                         <button
-                          onClick={() => handleSettingChange('security', 'twoFactorAuth', !settingsData.security.twoFactorAuth)}
-                          className={`w-12 h-7 rounded-full transition-all duration-300 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${settingsData.security.twoFactorAuth ? 'bg-red-600' : 'bg-slate-300'}`}
+                          onClick={() => handleSettingChange('notifications', item.key, !settingsData.notifications[item.key as keyof typeof settingsData.notifications])}
+                          className={`w-12 h-7 rounded-full transition-all duration-300 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 ${settingsData.notifications[item.key as keyof typeof settingsData.notifications] ? 'bg-brand-600' : 'bg-slate-300'}`}
                         >
-                          <div className={`w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-all duration-300 ${settingsData.security.twoFactorAuth ? 'left-6' : 'left-1'}`}></div>
+                          <div className={`w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-all duration-300 ${settingsData.notifications[item.key as keyof typeof settingsData.notifications] ? 'left-6' : 'left-1'}`}></div>
                         </button>
                       </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Billing Settings */}
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-green-50 text-green-600 rounded-xl ring-4 ring-green-50/50"><CreditCard size={24} /></div>
+                    <div>
+                      <h4 className="text-xl font-bold text-slate-900">Billing & Payment</h4>
+                      <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-wider">Financial Config</p>
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Minimum Password Length</label>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Currency</label>
                         <div className="relative">
                           <select
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none appearance-none font-medium text-slate-700"
-                            value={settingsData.security.minPasswordLength}
-                            onChange={(e) => handleSettingChange('security', 'minPasswordLength', e.target.value)}
+                            value={settingsData.billing.currency}
+                            onChange={(e) => handleSettingChange('billing', 'currency', e.target.value)}
                           >
-                            <option value="6">6 Characters</option>
-                            <option value="8">8 Characters</option>
-                            <option value="12">12 Characters (Recommended)</option>
+                            <option value="INR">INR (₹)</option>
+                            <option value="USD">USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                            <option value="GBP">GBP (£)</option>
                           </select>
                           <ChevronLeft className="absolute right-4 top-1/2 -translate-y-1/2 rotate-[-90deg] text-slate-400 pointer-events-none" size={16} />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Session Timeout (Minutes)</label>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Tax Rate (%)</label>
                         <input
                           type="number"
                           className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-700"
-                          value={settingsData.security.sessionTimeout}
-                          onChange={(e) => handleSettingChange('security', 'sessionTimeout', e.target.value)}
+                          value={settingsData.billing.taxRate}
+                          onChange={(e) => handleSettingChange('billing', 'taxRate', e.target.value)}
                         />
                       </div>
                     </div>
-                  </div>
-
-                  {/* Notification Settings */}
-                  <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center gap-4 mb-8">
-                      <div className="p-3 bg-yellow-50 text-yellow-600 rounded-xl ring-4 ring-yellow-50/50"><Bell size={24} /></div>
-                      <div>
-                        <h4 className="text-xl font-bold text-slate-900">Notifications</h4>
-                        <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-wider">Alert Preferences</p>
-                      </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Invoice Prefix</label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-700"
+                        value={settingsData.billing.invoicePrefix}
+                        onChange={(e) => handleSettingChange('billing', 'invoicePrefix', e.target.value)}
+                      />
                     </div>
-                    <div className="space-y-4">
-                      {[
-                        { label: 'Email Alerts', sub: 'Receive daily summary emails', key: 'emailAlerts' },
-                        { label: 'New Student Notification', sub: 'When a new student registers', key: 'newStudentNotify' },
-                        { label: 'Instructor Application', sub: 'When an instructor applies', key: 'instructorAppNotify' },
-                        { label: 'Marketing Emails', sub: 'Receive tips and product updates', key: 'marketingEmails' }
-                      ].map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between py-3 px-4 bg-slate-50/50 rounded-xl border border-slate-50 hover:bg-slate-50 hover:border-slate-100 transition-colors">
-                          <div>
-                            <p className="font-bold text-slate-900 text-sm">{item.label}</p>
-                            <p className="text-xs text-slate-500 mt-0.5">{item.sub}</p>
-                          </div>
-                          <button
-                            onClick={() => handleSettingChange('notifications', item.key, !settingsData.notifications[item.key as keyof typeof settingsData.notifications])}
-                            className={`w-12 h-7 rounded-full transition-all duration-300 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 ${settingsData.notifications[item.key as keyof typeof settingsData.notifications] ? 'bg-brand-600' : 'bg-slate-300'}`}
-                          >
-                            <div className={`w-5 h-5 bg-white rounded-full absolute top-1 shadow-sm transition-all duration-300 ${settingsData.notifications[item.key as keyof typeof settingsData.notifications] ? 'left-6' : 'left-1'}`}></div>
-                          </button>
-                        </div>
-                      ))}
+                    <div className="pt-4 border-t border-slate-100 mt-4">
+                      <Button variant="outline" className="w-full py-6 border-slate-200 text-slate-600 hover:border-brand-200 hover:text-brand-600 hover:bg-brand-50 group font-bold">
+                        <Lock size={18} className="mr-2 group-hover:text-brand-500 transition-colors" /> Configure Payment Gateway
+                      </Button>
                     </div>
                   </div>
-
-                  {/* Billing Settings */}
-                  <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center gap-4 mb-8">
-                      <div className="p-3 bg-green-50 text-green-600 rounded-xl ring-4 ring-green-50/50"><CreditCard size={24} /></div>
-                      <div>
-                        <h4 className="text-xl font-bold text-slate-900">Billing & Payment</h4>
-                        <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-wider">Financial Config</p>
-                      </div>
-                    </div>
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-sm font-semibold text-slate-700 mb-2">Currency</label>
-                          <div className="relative">
-                            <select
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none appearance-none font-medium text-slate-700"
-                              value={settingsData.billing.currency}
-                              onChange={(e) => handleSettingChange('billing', 'currency', e.target.value)}
-                            >
-                              <option value="INR">INR (₹)</option>
-                              <option value="USD">USD ($)</option>
-                              <option value="EUR">EUR (€)</option>
-                              <option value="GBP">GBP (£)</option>
-                            </select>
-                            <ChevronLeft className="absolute right-4 top-1/2 -translate-y-1/2 rotate-[-90deg] text-slate-400 pointer-events-none" size={16} />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-slate-700 mb-2">Tax Rate (%)</label>
-                          <input
-                            type="number"
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-700"
-                            value={settingsData.billing.taxRate}
-                            onChange={(e) => handleSettingChange('billing', 'taxRate', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">Invoice Prefix</label>
-                        <input
-                          type="text"
-                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all placeholder:text-slate-400 font-medium text-slate-700"
-                          value={settingsData.billing.invoicePrefix}
-                          onChange={(e) => handleSettingChange('billing', 'invoicePrefix', e.target.value)}
-                        />
-                      </div>
-                      <div className="pt-4 border-t border-slate-100 mt-4">
-                        <Button variant="outline" className="w-full py-6 border-slate-200 text-slate-600 hover:border-brand-200 hover:text-brand-600 hover:bg-brand-50 group font-bold">
-                          <Lock size={18} className="mr-2 group-hover:text-brand-500 transition-colors" /> Configure Payment Gateway
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
                 </div>
-              </div>
-            )
-          }
 
-        </div >
-      </main >
-    </div >
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
   );
 };

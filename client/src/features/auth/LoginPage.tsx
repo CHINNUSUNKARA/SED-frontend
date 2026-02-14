@@ -82,7 +82,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
         <div className="relative z-10 w-full">
           <div className="flex flex-col items-center mb-12 w-full">
             <img
-              src="/logo.png"
+              src="/logo-sed.png"
               alt="Scholastic Edu. Depot"
               className="h-24 w-auto mb-4"
             />
@@ -126,7 +126,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           className="absolute top-8 left-8 flex items-center gap-3 cursor-pointer lg:flex hidden"
           onClick={() => onNavigate('home')}
         >
-          <img src="/logo.png" alt="SED" className="h-10 w-auto" />
+          <img src="/logo-sed.png" alt="SED" className="h-10 w-auto" />
           <span className="text-xl font-display font-bold text-slate-900">SED</span>
         </div>
 

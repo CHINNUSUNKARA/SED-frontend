@@ -1,4 +1,3 @@
-
 const express = require('express');
 const Course = require('../models/Course');
 const { protectAdmin } = require('../middleware/authMiddleware');
@@ -6,6 +5,13 @@ const { courseValidator } = require('../middleware/validators');
 const setCache = require('../middleware/cacheMiddleware');
 
 const router = express.Router();
+
+// Helper function to broadcast course updates
+const broadcastCourseUpdate = (eventType, courseData) => {
+  if (global.broadcastEvent) {
+    global.broadcastEvent(eventType, courseData);
+  }
+};
 
 // @desc    Fetch all courses
 // @route   GET /api/courses
@@ -45,6 +51,10 @@ router.post('/', protectAdmin, courseValidator, async (req, res) => {
             return res.status(400).json({ message: 'Course with this slug already exists.' });
         }
         const newCourse = await Course.create(req.body);
+        
+        // Broadcast course creation event
+        broadcastCourseUpdate('course-created', newCourse);
+        
         res.status(201).json(newCourse);
     } catch (error) {
         res.status(400).json({ message: 'Invalid course data', error: error.message });
@@ -72,6 +82,10 @@ router.put('/:slug', protectAdmin, courseValidator, async (req, res) => {
                 req.body,
                 { new: true }
             );
+            
+            // Broadcast course update event
+            broadcastCourseUpdate('course-updated', updatedCourse);
+            
             res.json(updatedCourse);
         } else {
             res.status(404).json({ message: 'Course not found' });
@@ -99,6 +113,9 @@ router.delete('/bulk', protectAdmin, async (req, res) => {
                 { slug: { $in: ids } }
             ]
         });
+        
+        // Broadcast course deletion event
+        broadcastCourseUpdate('course-deleted', { ids, deletedCount: result.deletedCount });
 
         res.json({ message: 'Courses removed', count: result.deletedCount });
     } catch (error) {
@@ -113,6 +130,9 @@ router.delete('/:slug', protectAdmin, async (req, res) => {
     try {
         const course = await Course.findOneAndDelete({ slug: req.params.slug });
         if (course) {
+            // Broadcast single course deletion event
+            broadcastCourseUpdate('course-deleted', { ids: [req.params.slug], deletedCount: 1 });
+            
             res.json({ message: 'Course removed' });
         } else {
             res.status(404).json({ message: 'Course not found' });

@@ -28,7 +28,7 @@ export const PrivacyPolicyPage: React.FC<PrivacyPolicyPageProps> = ({ onNavigate
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="flex items-center justify-center mb-6 mx-auto">
-            <img src="/logo.png" alt="SED Logo" className="h-16 w-auto" />
+            <img src="/logo-sed.png" alt="SED" className="h-10 w-auto" />
           </div>
           <h1 className="text-3xl md:text-5xl font-display font-bold text-slate-900 text-center mb-6">
             Privacy Policy

@@ -59,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentView }) => {
             >
               <div className="flex items-center space-x-3">
                 <div className="p-1.5 rounded-lg transition-all duration-300 group-hover:bg-blue-50">
-                  <img src="/logo.png" alt="SED Logo" className="h-12 w-auto" />
+                  <img src="/logo-sed.png" alt="SED Logo" className="h-12 w-auto" />
                 </div>
                 <span className="hidden sm:block text-lg font-display font-bold text-gray-900">
                   SCHOLASTIC EDU. DEPOT
@@ -100,8 +100,8 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentView }) => {
             >
               Log in
             </button>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               onClick={() => onNavigate('get-started')}
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all"
             >

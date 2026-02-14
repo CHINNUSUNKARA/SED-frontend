@@ -32,7 +32,7 @@ interface Review {
   studentName: string;
 }
 
-interface Testimonial {
+interface TestimonialData {
   id: string;
   name: string;
   role: string;
@@ -42,61 +42,12 @@ interface Testimonial {
 }
 
 import { fetchCourses, CourseSummary } from '../../services/courseService';
+import { fetchCourseReviews, fetchTestimonials, CourseReview, Testimonial } from '../../services/reviewService';
+import { realtimeService } from '../../services/realtimeService';
 import { Course as FullCourse } from '../../constants';
 
 // Loading and data states
 const COURSE_CATEGORIES = ['All']; // Will expand after fetching
-const TESTIMONIALS: Testimonial[] = [];
-const COURSE_REVIEWS: Review[] = [
-  {
-    id: '1',
-    courseTitle: 'Full Stack Development',
-    rating: 5,
-    comment: 'Excellent course! The hands-on projects really helped me understand React and Node.js. Landed a job within 2 months of completion.',
-    date: '2 days ago',
-    studentName: 'Rajesh Kumar'
-  },
-  {
-    id: '2',
-    courseTitle: 'Data Science & AI',
-    rating: 5,
-    comment: 'Best investment in my career. The instructors are industry experts and the curriculum is very practical and up-to-date.',
-    date: '5 days ago',
-    studentName: 'Priya Sharma'
-  },
-  {
-    id: '3',
-    courseTitle: 'Python Programming',
-    rating: 4,
-    comment: 'Great course for beginners. Covered everything from basics to advanced concepts. Would recommend to anyone starting with Python.',
-    date: '1 week ago',
-    studentName: 'Amit Patel'
-  },
-  {
-    id: '4',
-    courseTitle: 'Digital Marketing',
-    rating: 5,
-    comment: 'Transformed my understanding of digital marketing. The real-world case studies and practical assignments were incredibly valuable.',
-    date: '1 week ago',
-    studentName: 'Sneha Reddy'
-  },
-  {
-    id: '5',
-    courseTitle: 'Cloud Computing (AWS)',
-    rating: 5,
-    comment: 'Comprehensive AWS training with hands-on labs. Got my AWS certification and now working as a cloud engineer. Thank you SED!',
-    date: '2 weeks ago',
-    studentName: 'Vikram Singh'
-  },
-  {
-    id: '6',
-    courseTitle: 'Full Stack Development',
-    rating: 4,
-    comment: 'Very detailed course with excellent support from instructors. The capstone project helped me build a complete portfolio.',
-    date: '2 weeks ago',
-    studentName: 'Kavya Menon'
-  }
-];
 
 interface CoursesPageProps {
   onNavigate: (view: ViewState) => void;
@@ -112,6 +63,8 @@ export const CoursesPage: React.FC<CoursesPageProps> = ({ onNavigate, onViewInst
   const [sortOrder, setSortOrder] = useState<'default' | 'asc' | 'desc'>('default');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCourse, setSelectedCourse] = useState<CourseSummary | null>(null);
+  const [courseReviews, setCourseReviews] = useState<CourseReview[]>([]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
 
   const itemsPerPage = 6;
 
@@ -137,7 +90,7 @@ export const CoursesPage: React.FC<CoursesPageProps> = ({ onNavigate, onViewInst
 
   // Fetch courses once
   useEffect(() => {
-    (async () => {
+    const fetchCoursesData = async () => {
       try {
         const data = await fetchCourses();
         setCourses(data);
@@ -150,7 +103,46 @@ export const CoursesPage: React.FC<CoursesPageProps> = ({ onNavigate, onViewInst
       } finally {
         setLoading(false);
       }
-    })();
+    };
+
+    const fetchReviewsAndTestimonials = async () => {
+      try {
+        const [reviewsData, testimonialsData] = await Promise.all([
+          fetchCourseReviews(6),
+          fetchTestimonials()
+        ]);
+        setCourseReviews(reviewsData);
+        setTestimonials(testimonialsData);
+      } catch (error) {
+        console.error('Failed to fetch reviews and testimonials:', error);
+      }
+    };
+
+    fetchCoursesData();
+    fetchReviewsAndTestimonials();
+
+    // Set up periodic refresh to get latest data from admin changes
+    const interval = setInterval(fetchCoursesData, 30000); // Refresh every 30 seconds
+
+    // Set up real-time listeners for immediate updates
+    const unsubscribeCourseCreated = realtimeService.subscribe('course-created', () => {
+      fetchCoursesData();
+    });
+
+    const unsubscribeCourseUpdated = realtimeService.subscribe('course-updated', () => {
+      fetchCoursesData();
+    });
+
+    const unsubscribeCourseDeleted = realtimeService.subscribe('course-deleted', () => {
+      fetchCoursesData();
+    });
+
+    return () => {
+      clearInterval(interval);
+      unsubscribeCourseCreated();
+      unsubscribeCourseUpdated();
+      unsubscribeCourseDeleted();
+    };
   }, []);
 
   // Reset page when filters/sort change
@@ -439,7 +431,7 @@ export const CoursesPage: React.FC<CoursesPageProps> = ({ onNavigate, onViewInst
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {COURSE_REVIEWS.map((review) => (
+            {courseReviews.length > 0 ? courseReviews.map((review) => (
               <div key={review.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-3">
                   <div>
@@ -462,7 +454,11 @@ export const CoursesPage: React.FC<CoursesPageProps> = ({ onNavigate, onViewInst
                   <span className="text-sm font-medium text-slate-900">{review.studentName}</span>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="col-span-full text-center py-8">
+                <p className="text-slate-500">No reviews available yet. Be the first to review a course!</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -480,7 +476,7 @@ export const CoursesPage: React.FC<CoursesPageProps> = ({ onNavigate, onViewInst
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {TESTIMONIALS.map((testimonial) => (
+            {testimonials.length > 0 ? testimonials.map((testimonial) => (
               <div key={testimonial.id} className="bg-slate-50 p-8 rounded-2xl border border-slate-100 relative group hover:shadow-lg transition-all duration-300">
                 {/* Quote Icon */}
                 <div className="absolute top-6 right-6 text-brand-100 group-hover:text-brand-200 transition-colors">
@@ -513,7 +509,11 @@ export const CoursesPage: React.FC<CoursesPageProps> = ({ onNavigate, onViewInst
                   </div>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="col-span-full text-center py-12">
+                <p className="text-slate-500">No testimonials available yet.</p>
+              </div>
+            )}
           </div>
         </div>
       </section>

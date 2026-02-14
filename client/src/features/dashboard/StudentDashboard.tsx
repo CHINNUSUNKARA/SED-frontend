@@ -20,6 +20,12 @@ interface StudentDashboardProps {
 
 type StudentTab = 'dashboard' | 'my-courses' | 'schedule' | 'assignments' | 'certificates' | 'settings';
 
+interface EnrolledCourse extends CourseSummary {
+   progress: number;
+   nextLesson: string;
+   lastAccessed?: string;
+}
+
 // Mock Student Data
 // Mock data removed. Using dynamic data from userService.
 
@@ -28,13 +34,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
    const [activeTab, setActiveTab] = useState<StudentTab>('dashboard');
    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
    const [viewingCourseId, setViewingCourseId] = useState<string | number | null>(null);
-   const [selectedScheduleItem, setSelectedScheduleItem] = useState<any>(null);
+   const [selectedScheduleItem, setSelectedScheduleItem] = useState<ScheduleEvent | null>(null);
    const [submissionLoading, setSubmissionLoading] = useState<string | null>(null); // assignment ID being submitted
    const [isSubmissionModalOpen, setIsSubmissionModalOpen] = useState(false);
    const [selectedAssignmentForSubmission, setSelectedAssignmentForSubmission] = useState<Assignment | null>(null);
 
    const [profile, setProfile] = useState<UserProfile | null>(null);
-   const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
+   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([]);
    const [assignments, setAssignments] = useState<Assignment[]>([]);
    const [schedule, setSchedule] = useState<ScheduleEvent[]>([]);
    const [certificates, setCertificates] = useState<Certificate[]>([]);
@@ -569,7 +575,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
             <div className="h-full flex flex-col">
                <div className="p-6 flex items-center justify-between">
                   <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('home')}>
-                     <img src="/logo.png" alt="SED" className="w-8 h-8 rounded-lg" />
+                     <img src="/logo-sed.png" alt="SED" className="w-8 h-8 rounded-lg" />
                      <span className="text-xl font-display font-bold">SED<span className="text-brand-500">.</span></span>
                   </div>
                   <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400">
@@ -774,7 +780,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
                               <span className="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-1 rounded-full">Est. Total</span>
                            </div>
                            <h3 className="text-3xl font-bold text-slate-900 mb-1">
-                              {Math.round(enrolledCourses.reduce((acc, curr) => acc + (curr.progress / 100 * curr.lessons * 1.5), 0))}h
+                              {Math.round(enrolledCourses.reduce((acc, curr) => acc + (curr.progress / 100 * (curr.lessons || 0) * 1.5), 0))}h
                            </h3>
                            <p className="text-sm text-slate-500">Learning Time</p>
                         </div>
@@ -796,7 +802,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                            {enrolledCourses.map((course) => {
-                              const completedLessons = Math.round((course.progress / 100) * course.lessons);
+                              const completedLessons = Math.round((course.progress / 100) * (course.lessons || 0));
                               return (
                                  <div key={course.id} className="relative">
                                     <div className="flex justify-between items-end mb-2">
@@ -1123,7 +1129,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
                                           <h3 className="font-bold text-slate-900 mb-4">Instructor</h3>
                                           <div className="flex items-center gap-3 mb-4">
                                              <div className="w-12 h-12 rounded-full bg-slate-200">
-                                                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(course.instructor)}&background=EBF4FF&color=2563EB`} alt={course.instructor} className="w-full h-full rounded-full" />
+                                                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(course.instructor || 'SED')}&background=EBF4FF&color=2563EB`} alt={course.instructor} className="w-full h-full rounded-full" />
                                              </div>
                                              <div>
                                                 <p className="font-bold text-slate-900 text-sm">{course.instructor}</p>

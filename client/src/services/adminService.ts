@@ -1,4 +1,5 @@
 import api from '../lib/api';
+import { realtimeService } from './realtimeService';
 
 // Get auth token from localStorage
 const getAuthToken = () => {
@@ -86,6 +87,10 @@ export const getAnalytics = async () => {
 export const createCourse = async (courseData: any) => {
     try {
         const response = await api.post('/courses', courseData);
+        
+        // Trigger real-time update
+        realtimeService.triggerRefresh('courses');
+        
         return response.data;
     } catch (error) {
         console.error('Error creating course:', error);
@@ -97,6 +102,10 @@ export const createCourse = async (courseData: any) => {
 export const updateCourse = async (slug: string, courseData: any) => {
     try {
         const response = await api.put(`/courses/${slug}`, courseData);
+        
+        // Trigger real-time update
+        realtimeService.triggerRefresh('courses');
+        
         return response.data;
     } catch (error) {
         console.error('Error updating course:', error);
@@ -108,6 +117,10 @@ export const updateCourse = async (slug: string, courseData: any) => {
 export const deleteCourses = async (ids: (string | number)[]) => {
     try {
         const response = await api.delete('/courses/bulk', { data: { ids } });
+        
+        // Trigger real-time update
+        realtimeService.triggerRefresh('courses');
+        
         return response.data;
     } catch (error) {
         console.error('Error deleting courses:', error);
@@ -211,6 +224,8 @@ export default {
     getAllCourses,
     getAnalytics,
     createCourse,
+    updateCourse,
+    createUser,
     deleteCourses,
     suspendStudents,
     deleteStudents,
