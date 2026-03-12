@@ -1,6 +1,0 @@
-CLIENT_URL=https://scholastic-edu-depot.com
-JWT_SECRET=12468b198c411151cfbde228e1e27e52c8ef38c4ea54398d704277df43235a25
-MONGO_URI="mongodb+srv://venuthota722_db_user:i4BpyDzK6CGgozTB@cluster0.aqhzbnd.mongodb.net/SED_DB?retryWrites=true&w=majority&ssl=true&appName=Cluster0"
-NODE_ENV=development
-NODE_VERSION=22.11.0
-VITE_API_BASE_URL=/api
