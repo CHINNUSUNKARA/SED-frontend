@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
         proxy: {
           '/api': {
-            target: 'http://localhost:5000',
+            target: 'https://sed-platform-09d3.onrender.com',
             changeOrigin: true,
             secure: false,
             // Keep the `/api` prefix when proxying so backend routes like
