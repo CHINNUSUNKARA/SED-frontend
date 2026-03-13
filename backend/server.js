@@ -17,6 +17,16 @@ if (!MONGO_URI) {
 
 // Core dependencies
 const express = require('express');
+import cors from 'cors';
+
+// Allow your frontend domain(s) to call your backend
+app.use(cors({
+  origin: [
+    'https://www.scholastic-edu-depot.com',
+    'https://scholastic-edu-depot.com'
+  ],
+  credentials: true, // needed if your backend uses cookies or sessions
+}));
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
