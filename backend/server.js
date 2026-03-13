@@ -16,7 +16,7 @@ const jwt = require('jsonwebtoken');
 // ---------------- ENV VARIABLES ----------------
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
-const CLIENT_URL = process.env.CLIENT_URL || 'https://www.scholastic-edu-depot.com';
+const CLIENT_URL = process.env.CLIENT_URL || 'https://scholastic-edu-depot.com';
 const JWT_SECRET = process.env.JWT_SECRET;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
