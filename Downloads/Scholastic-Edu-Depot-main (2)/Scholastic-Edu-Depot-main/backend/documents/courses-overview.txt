@@ -1,0 +1,34 @@
+SED Academy - Course Catalog
+
+Web Development Track:
+1. Frontend Development with React
+   - Duration: 8 weeks
+   - Prerequisites: Basic HTML/CSS/JS
+   - Topics: React Hooks, Context API, Redux, Next.js
+
+2. Backend Development with Node.js
+   - Duration: 10 weeks
+   - Prerequisites: JavaScript basics
+   - Topics: Express.js, REST APIs, Authentication, MongoDB
+
+3. Full Stack Development (MERN)
+   - Duration: 12 weeks
+   - Prerequisites: Basic programming knowledge
+   - Topics: Full project lifecycle, Deployment, Best Practices
+
+AI & Data Science Track:
+1. Python for Data Science
+   - Duration: 6 weeks
+   - Prerequisites: Basic programming
+   - Topics: NumPy, Pandas, Matplotlib
+
+2. Machine Learning Fundamentals
+   - Duration: 10 weeks
+   - Prerequisites: Python, Basic Statistics
+   - Topics: Supervised/Unsupervised Learning, Model Evaluation
+
+All courses include:
+- Hands-on projects
+- Code reviews
+- Career support
+- Certificate of completion

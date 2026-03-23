@@ -1,0 +1,35 @@
+SED Academy - Admission Process
+
+1. Application
+   - Submit online application form
+   - No application fee
+   - Rolling admissions
+
+2. Prerequisites
+   - Basic computer literacy
+   - Personal computer/laptop
+   - Stable internet connection
+   - 10+ hours per week for study
+
+3. Technical Assessment
+   - Basic programming test (for technical courses)
+   - Logical reasoning test
+   - No prior experience required for beginner courses
+
+4. Interview
+   - 30-minute video call
+   - Discuss goals and expectations
+   - Course fit assessment
+
+5. Enrollment
+   - Seat confirmation
+   - Payment options:
+     * Full payment (5% discount)
+     * Installment plans available
+     * Scholarships for eligible candidates
+
+6. Onboarding
+   - Welcome kit
+   - Orientation session
+   - Access to learning platform
+   - Meet your mentor

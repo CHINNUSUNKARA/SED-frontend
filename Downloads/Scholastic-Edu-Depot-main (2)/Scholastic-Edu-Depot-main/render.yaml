@@ -1,0 +1,21 @@
+services:
+  # A Web Service that builds the frontend and runs the backend
+  - type: web
+    name: sed-platform
+    runtime: node
+    plan: free # Optional: defaults to free or starter depending on account
+    buildCommand: cd client && npm install --include=dev && npm run build && cd ../backend && npm install
+    startCommand: cd backend && node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0 # Using a stable recent version
+      - key: MONGO_URI
+        sync: false # User must provide this in dashboard
+      - key: JWT_SECRET
+        sync: false # User must provide this in dashboard
+      - key: NODE_ENV
+        value: production
+      - key: VITE_API_BASE_URL
+        value: /api
+      - key: CLIENT_URL
+        value: https://scholastic-edu-depot.com
