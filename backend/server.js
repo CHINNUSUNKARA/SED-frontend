@@ -95,7 +95,18 @@ const port = process.env.PORT || 5000;
 
 
 // ---------------- CORS ----------------
-app.use(cors({ origin: '*' }));
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (curl, mobile apps, same-origin)
+    if (!origin) return callback(null, true);
+    callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Handle preflight for all routes
 
 // ---------------- PARSERS ----------------
 app.use(express.json({ limit: '10mb' }));
