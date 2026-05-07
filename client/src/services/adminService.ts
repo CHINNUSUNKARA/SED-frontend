@@ -1,24 +1,13 @@
-import api from '../lib/api';
+import api, { get, clearCache } from '../lib/api';
 import { realtimeService } from './realtimeService';
 
-// Get auth token from localStorage
-const getAuthToken = () => {
-    return localStorage.getItem('token');
-};
-
-// Add token to requests
-api.interceptors.request.use((config) => {
-    const token = getAuthToken();
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
-
-// Get dashboard statistics
-export const getDashboardStats = async () => {
+// Get dashboard statistics with caching
+export const getDashboardStats = async (skipCache = false) => {
     try {
-        const response = await api.get('/admin/dashboard/stats');
+        const response = await get('/admin/dashboard/stats', { 
+            skipCache,
+            timeout: 10000 
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
@@ -26,10 +15,14 @@ export const getDashboardStats = async () => {
     }
 };
 
-// Get recent enrollments
-export const getRecentEnrollments = async (limit = 10) => {
+// Get recent enrollments with caching
+export const getRecentEnrollments = async (limit = 10, skipCache = false) => {
     try {
-        const response = await api.get(`/admin/dashboard/enrollments/recent?limit=${limit}`);
+        const response = await get(`/admin/dashboard/enrollments/recent`, {
+            params: { limit },
+            skipCache,
+            timeout: 8000
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching recent enrollments:', error);
@@ -37,10 +30,13 @@ export const getRecentEnrollments = async (limit = 10) => {
     }
 };
 
-// Get all students
-export const getAllStudents = async () => {
+// Get all students with caching
+export const getAllStudents = async (skipCache = false) => {
     try {
-        const response = await api.get('/admin/dashboard/students');
+        const response = await get('/admin/dashboard/students', {
+            skipCache,
+            timeout: 10000
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching students:', error);
@@ -48,10 +44,13 @@ export const getAllStudents = async () => {
     }
 };
 
-// Get all instructors
-export const getAllInstructors = async () => {
+// Get all instructors with caching
+export const getAllInstructors = async (skipCache = false) => {
     try {
-        const response = await api.get('/admin/dashboard/instructors');
+        const response = await get('/admin/dashboard/instructors', {
+            skipCache,
+            timeout: 10000
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching instructors:', error);
@@ -59,10 +58,13 @@ export const getAllInstructors = async () => {
     }
 };
 
-// Get all courses
-export const getAllCourses = async () => {
+// Get all courses with caching
+export const getAllCourses = async (skipCache = false) => {
     try {
-        const response = await api.get('/admin/dashboard/courses');
+        const response = await get('/admin/dashboard/courses', {
+            skipCache,
+            timeout: 10000
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching courses:', error);
@@ -70,10 +72,13 @@ export const getAllCourses = async () => {
     }
 };
 
-// Get analytics data
-export const getAnalytics = async () => {
+// Get analytics data with caching
+export const getAnalytics = async (skipCache = false) => {
     try {
-        const response = await api.get('/admin/dashboard/analytics');
+        const response = await get('/admin/dashboard/analytics', {
+            skipCache,
+            timeout: 10000
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching analytics:', error);
@@ -81,14 +86,15 @@ export const getAnalytics = async () => {
     }
 };
 
-// --- Action Methods ---
+// --- Action Methods with Optimistic Updates ---
 
 // Create a new course
 export const createCourse = async (courseData: any) => {
     try {
-        const response = await api.post('/courses', courseData);
+        const response = await api.post('/courses', courseData, { timeout: 15000 });
         
-        // Trigger real-time update
+        // Clear cache and trigger real-time update
+        clearCache('courses');
         realtimeService.triggerRefresh('courses');
         
         return response.data;
@@ -101,9 +107,10 @@ export const createCourse = async (courseData: any) => {
 // Update an existing course
 export const updateCourse = async (slug: string, courseData: any) => {
     try {
-        const response = await api.put(`/courses/${slug}`, courseData);
+        const response = await api.put(`/courses/${slug}`, courseData, { timeout: 15000 });
         
-        // Trigger real-time update
+        // Clear cache and trigger real-time update
+        clearCache('courses');
         realtimeService.triggerRefresh('courses');
         
         return response.data;
@@ -116,9 +123,13 @@ export const updateCourse = async (slug: string, courseData: any) => {
 // Bulk delete courses
 export const deleteCourses = async (ids: (string | number)[]) => {
     try {
-        const response = await api.delete('/courses/bulk', { data: { ids } });
+        const response = await api.delete('/courses/bulk', { 
+            data: { ids },
+            timeout: 15000 
+        });
         
-        // Trigger real-time update
+        // Clear cache and trigger real-time update
+        clearCache('courses');
         realtimeService.triggerRefresh('courses');
         
         return response.data;
@@ -131,7 +142,14 @@ export const deleteCourses = async (ids: (string | number)[]) => {
 // Suspend students
 export const suspendStudents = async (ids: (string | number)[]) => {
     try {
-        const response = await api.post('/admin/users/suspend', { ids, status: 'Inactive' });
+        const response = await api.post('/admin/users/suspend', { 
+            ids, 
+            status: 'Inactive' 
+        }, { timeout: 10000 });
+        
+        // Clear students cache
+        clearCache('students');
+        
         return response.data;
     } catch (error) {
         console.error('Error suspending students:', error);
@@ -142,7 +160,14 @@ export const suspendStudents = async (ids: (string | number)[]) => {
 // Delete students
 export const deleteStudents = async (ids: (string | number)[]) => {
     try {
-        const response = await api.delete('/admin/users', { data: { ids } });
+        const response = await api.delete('/admin/users', { 
+            data: { ids },
+            timeout: 10000 
+        });
+        
+        // Clear students cache
+        clearCache('students');
+        
         return response.data;
     } catch (error) {
         console.error('Error deleting students:', error);
@@ -153,7 +178,11 @@ export const deleteStudents = async (ids: (string | number)[]) => {
 // Create a new user (Instructor/Student)
 export const createUser = async (userData: any) => {
     try {
-        const response = await api.post('/admin/users', userData);
+        const response = await api.post('/admin/users', userData, { timeout: 10000 });
+        
+        // Clear users cache
+        clearCache('users');
+        
         return response.data;
     } catch (error) {
         console.error('Error creating user:', error);
@@ -161,10 +190,13 @@ export const createUser = async (userData: any) => {
     }
 };
 
-// Get Settings
-export const getSettings = async () => {
+// Get Settings with caching
+export const getSettings = async (skipCache = false) => {
     try {
-        const response = await api.get('/admin/settings');
+        const response = await get('/admin/settings', {
+            skipCache,
+            timeout: 8000
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching settings:', error);
@@ -175,7 +207,11 @@ export const getSettings = async () => {
 // Update Settings
 export const updateSettings = async (settingsData: any) => {
     try {
-        const response = await api.put('/admin/settings', settingsData);
+        const response = await api.put('/admin/settings', settingsData, { timeout: 10000 });
+        
+        // Clear settings cache
+        clearCache('settings');
+        
         return response.data;
     } catch (error) {
         console.error('Error updating settings:', error);
@@ -183,10 +219,13 @@ export const updateSettings = async (settingsData: any) => {
     }
 };
 
-// Get Notifications
-export const getNotifications = async () => {
+// Get Notifications with caching
+export const getNotifications = async (skipCache = false) => {
     try {
-        const response = await api.get('/notifications');
+        const response = await get('/notifications', {
+            skipCache,
+            timeout: 8000
+        });
         return response.data;
     } catch (error) {
         console.error('Error fetching notifications:', error);
@@ -197,7 +236,11 @@ export const getNotifications = async () => {
 // Mark all notifications as read
 export const markAllNotificationsRead = async () => {
     try {
-        const response = await api.put('/notifications/mark-read');
+        const response = await api.put('/notifications/mark-read', {}, { timeout: 5000 });
+        
+        // Clear notifications cache
+        clearCache('notifications');
+        
         return response.data;
     } catch (error) {
         console.error('Error marking notifications read:', error);
@@ -208,7 +251,11 @@ export const markAllNotificationsRead = async () => {
 // Mark single notification as read
 export const markNotificationAsRead = async (id: string) => {
     try {
-        const response = await api.put(`/notifications/${id}/read`);
+        const response = await api.put(`/notifications/${id}/read`, {}, { timeout: 5000 });
+        
+        // Clear notifications cache
+        clearCache('notifications');
+        
         return response.data;
     } catch (error) {
         console.error('Error marking notification read:', error);

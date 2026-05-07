@@ -11,7 +11,7 @@ const router = express.Router();
 // @desc    Fetch all blog posts
 // @route   GET /api/blog
 // @access  Public
-router.get('/', setCache(3600), async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         console.log('Fetching blog posts...');
         // Check if BlogPost model is defined

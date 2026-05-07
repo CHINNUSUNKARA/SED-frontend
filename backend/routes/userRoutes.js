@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Course = require('../models/Course');
+const Enrollment = require('../models/Enrollment');
 const { protectStudent, protect } = require('../middleware/authMiddleware');
 const { userProfileValidators } = require('../middleware/validators');
 
@@ -173,38 +174,77 @@ router.get('/profile', protect, async (req, res) => {
     }
 });
 
-// @desc    Get enrolled courses with full details
+// @desc    Get all enrolled courses for the authenticated student
 // @route   GET /api/user/enrolled-courses
-// @access  Private
+// @access  Private (JWT required)
 router.get('/enrolled-courses', protect, async (req, res) => {
     try {
-        const Enrollment = require('../models/Enrollment');
-        // Fetch enrollments and populate course details
         const enrollments = await Enrollment.find({ student: req.user.userId })
-            .populate('course', 'title slug thumbnail level lessons category rating duration description image');
+            .populate('course', 'title name slug thumbnail imageUrl lessons category rating duration description');
 
-        // Format for frontend
         const formatted = enrollments.map(e => {
-            if (!e.course) return null; // Handle deleted courses
+            if (!e.course) return null;
             return {
+                enrollmentId: e._id,
                 id: e.course._id,
-                title: e.course.title,
+                title: e.course.title || e.course.name,
                 slug: e.course.slug,
                 progress: e.progress,
+                completedLessons: e.completedLessons,
                 lastAccessed: e.updatedAt,
+                enrolledAt: e.enrolledAt,
                 lessons: e.course.lessons || 0,
-                image: e.course.thumbnail || e.course.image || '/placeholder.jpg',
+                image: e.course.imageUrl || e.course.image || '/placeholder.jpg',
                 category: e.course.category || 'General',
                 rating: e.course.rating || 5.0,
                 description: e.course.description,
-                nextLesson: e.progress === 100 ? 'Course Completed' : `Lesson ${Math.floor((e.progress / 100) * (e.course.lessons || 1)) + 1}`,
-                status: e.status
+                nextLesson: e.progress === 100
+                    ? 'Course Completed'
+                    : `Lesson ${Math.floor((e.progress / 100) * (e.course.lessons || 1)) + 1}`,
+                status: e.status,
+                paymentStatus: e.paymentStatus,
             };
-        }).filter(item => item !== null);
+        }).filter(Boolean);
 
         res.json(formatted);
     } catch (error) {
         console.error('Error fetching enrolled courses:', error);
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+});
+
+// @desc    Check if the authenticated student is enrolled in a specific course
+// @route   GET /api/user/enrollment/check/:courseSlug
+// @access  Private (JWT required — token verified, student identity resolved)
+router.get('/enrollment/check/:courseSlug', protect, async (req, res) => {
+    try {
+        const { courseSlug } = req.params;
+
+        const course = await Course.findOne({ slug: courseSlug }).select('_id name slug');
+        if (!course) {
+            return res.status(404).json({ isEnrolled: false, message: 'Course not found.' });
+        }
+
+        const enrollment = await Enrollment.findOne({
+            student: req.user.userId,
+            course: course._id,
+        }).select('_id status progress paymentStatus enrolledAt');
+
+        if (!enrollment) {
+            return res.json({ isEnrolled: false, courseSlug });
+        }
+
+        res.json({
+            isEnrolled: true,
+            courseSlug,
+            enrollmentId: enrollment._id,
+            status: enrollment.status,
+            progress: enrollment.progress,
+            paymentStatus: enrollment.paymentStatus,
+            enrolledAt: enrollment.enrolledAt,
+        });
+    } catch (error) {
+        console.error('Enrollment check error:', error);
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 });

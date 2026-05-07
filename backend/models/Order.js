@@ -24,14 +24,18 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'completed', 'failed'], 
     default: 'pending' 
   },
-  paymentMethod: { 
-    type: String, 
-    required: true 
+  paymentMethod: {
+    type: String,
+    required: true
   },
-  orderId: { 
-    type: String, 
-    required: true, 
-    unique: true 
+  orderId: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  paymentId: {
+    type: String,
+    default: null,
   }
 }, { timestamps: true });
 

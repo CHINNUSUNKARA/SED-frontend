@@ -4,7 +4,7 @@ require('dotenv').config({ path: envPath, override: false });
 const path = require('path');
 const resolve = path.resolve;
 const join = path.join;
-
+const dns = require('dns')
 // Ensure the correct embedding model is used
 process.env.EMBEDDING_MODEL = 'jinaai/jina-embeddings-v2-base-en';
 
@@ -114,109 +114,52 @@ const app = express();
 app.set('trust proxy', 1);
 const port = process.env.PORT || 5000;
 
-// ---------------- MONGODB CONNECTION ----------------
-const connectDB = async () => {
-  try {
-    // Parse the MongoDB URI to ensure it's valid
-    let mongoUri = MONGO_URI;
 
-    // Ensure the connection string has the correct format
-    if (!mongoUri.includes('retryWrites')) {
-      mongoUri += (mongoUri.includes('?') ? '&' : '?') + 'retryWrites=true&w=majority';
-    }
+// ---------------- SECURITY & PERFORMANCE MIDDLEWARE ----------------
+// app.use(helmet({
+//   contentSecurityPolicy: {
+//     directives: {
+//       defaultSrc: ["'self'"],
+//       scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
+//       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+//       imgSrc: [
+//         "'self'", "data:", "blob:",
+//         "https://res.cloudinary.com",
+//         "https://*.googleusercontent.com",
+//         "https://images.unsplash.com",
+//         "https://ui-avatars.com",
+//         "https://i.pravatar.cc",
+//         "https://www.svgrepo.com",
+//         "https://www.transparenttextures.com",
+//         "https://www.google.com",
+//         "https://img-prod-cms-rt-microsoft-com.akamaized.net",
+//         "https://www.microsoft.com",
+//         "https://upload.wikimedia.org"
+//       ],
+//       connectSrc: ["'self'", "https://*.googleapis.com", "https://*.stripe.com", "https://accounts.google.com"],
+//       fontSrc: ["'self'", "https://fonts.gstatic.com"],
+//       objectSrc: ["'none'"],
+//       mediaSrc: ["'self'"],
+//       frameSrc: ["'self'", "https://js.stripe.com", "https://accounts.google.com"]
+//     },
+//   },
+//   crossOriginResourcePolicy: { policy: "cross-origin" },
+//   crossOriginEmbedderPolicy: false,
+//   crossOriginOpenerPolicy: { policy: "same-origin" },
+//   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+//   xssFilter: true,
+//   noSniff: true,
+//   ieNoOpen: true,
+//   hidePoweredBy: true,
+//   frameguard: { action: 'deny' }
+// }));
 
-    console.log('Attempting to connect to MongoDB...');
+// Apply compression to gzip responses for better performance in production
+app.use(compression());
 
-    // Connect with modern options
-    const sslEnabled = mongoUri.includes('ssl=true') || mongoUri.includes('mongodb+srv://');
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 10000, // 10 seconds timeout
-      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-      connectTimeoutMS: 10000, // Give up initial connection after 10 seconds
-      retryWrites: true,
-      w: 'majority',
-      ssl: sslEnabled,
-      tls: sslEnabled,
-      // Removed tlsInsecure as it conflicts with tlsAllowInvalidCertificates
-      tlsAllowInvalidCertificates: false, // Set to false for production Atlas
-      tlsAllowInvalidHostnames: false,    // Set to false for production Atlas
-      family: 4, // Use IPv4
-      // Add server API for MongoDB 5.0+
-      serverApi: {
-        version: '1',
-        strict: false,
-        deprecationErrors: true,
-      },
-      // Connection pool options
-      maxPoolSize: 10, // Maximum number of connections in the connection pool
-      minPoolSize: 1,  // Minimum number of connections in the connection pool
-    });
-
-    console.log('Successfully connected to MongoDB');
-
-    // Seed initial data if needed
-    try {
-      await seedData();
-    } catch (seedError) {
-      console.error('Error seeding data:', seedError);
-      // Don't exit if seeding fails, as the app might still work
-    }
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    console.error('Connection details:', {
-      host: mongoose.connection?.host,
-      port: mongoose.connection?.port,
-      name: mongoose.connection?.name
-    });
-    console.error('Please check your MongoDB Atlas connection string and ensure your IP is whitelisted.');
-    process.exit(1);
-  }
-};
-
-
-// ---------------- SECURITY MIDDLEWARE ----------------
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      imgSrc: [
-        "'self'", "data:", "blob:",
-        "https://res.cloudinary.com",
-        "https://*.googleusercontent.com",
-        "https://images.unsplash.com",
-        "https://ui-avatars.com",
-        "https://i.pravatar.cc",
-        "https://www.svgrepo.com",
-        "https://www.transparenttextures.com",
-        "https://www.google.com",
-        "https://img-prod-cms-rt-microsoft-com.akamaized.net",
-        "https://www.microsoft.com",
-        "https://upload.wikimedia.org"
-      ],
-      connectSrc: ["'self'", "https://*.googleapis.com", "https://*.stripe.com", "https://accounts.google.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'self'", "https://js.stripe.com", "https://accounts.google.com"]
-    },
-  },
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  crossOriginEmbedderPolicy: false,
-  crossOriginOpenerPolicy: { policy: "same-origin" },
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-  xssFilter: true,
-  noSniff: true,
-  ieNoOpen: true,
-  hidePoweredBy: true,
-  frameguard: { action: 'deny' }
-}));
-
-// CORS Configuration
 // CORS Configuration
 const allowedOrigins = [
-  'http://localhost:3000',
+  'http://localhost:8080',
   'http://localhost:5173',
   process.env.CLIENT_URL,
   process.env.CLIENT_URL ? process.env.CLIENT_URL.replace('https://', 'https://www.') : '',
@@ -250,124 +193,109 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
 // ---------------- PARSERS ----------------
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// // Enable ETag for caching
+// app.set('etag', 'strong');
 
 // ---------------- CSRF SETUP ----------------
 // Configure CSRF protection
-const csrfProtection = csrf({
-  cookie: {
-    key: '_csrf',
-    httpOnly: true, // The cookie is not accessible via JavaScript
-    secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
-    sameSite: 'lax', // Protection against CSRF attacks
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-});
+// const csrfProtection = csrf({
+//   cookie: {
+//     key: '_csrf',
+//     httpOnly: true, // The cookie is not accessible via JavaScript
+//     secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
+//     sameSite: 'lax', // Protection against CSRF attacks
+//     maxAge: 24 * 60 * 60 * 1000 // 24 hours
+//   }
+// });
 
 // Apply CSRF protection selectively. We do NOT apply the CSRF middleware globally
 // because that would validate every request before our exclusion logic runs
 // (causing POSTs like register to be rejected). Instead, call `csrfProtection`
 // inside a conditional middleware so we can exclude specific routes.
-app.use((req, res, next) => {
-  // List of routes to exclude from CSRF protection
-  // Note: we DO NOT exclude the csrf-token endpoint because it must run
-  // the CSRF middleware to generate and attach a token on GET requests.
-  const csrfExcluded = [
-    '/api/auth/login',
-    '/api/auth/register',
-    '/api/auth/google-login',
-    '/api/contact', // Public contact form
-    '/api/health', // Add health check endpoint
-    '/api/ai/chat' // Exclude AI chat endpoint from CSRF
-  ];
+// app.use((req, res, next) => {
+//   // List of routes to exclude from CSRF protection
+//   // Note: we DO NOT exclude the csrf-token endpoint because it must run
+//   // the CSRF middleware to generate and attach a token on GET requests.
+//   const csrfExcluded = [
+//     '/api/auth/login',
+//     '/api/auth/register',
+//     '/api/auth/google-login',
+//     '/api/contact', // Public contact form
+//     '/api/health', // Add health check endpoint
+//     '/api/ai/chat' // Exclude AI chat endpoint from CSRF
+//   ];
 
-  if (csrfExcluded.some(path => req.path.startsWith(path))) {
-    return next();
-  }
+//   if (csrfExcluded.some(path => req.path.startsWith(path))) {
+//     return next();
+//   }
 
-  // For all non-excluded routes, run the CSRF middleware. For safe methods
-  // (GET/HEAD/OPTIONS) csurf will attach `req.csrfToken()` without rejecting;
-  // for unsafe methods (POST/PUT/DELETE) it will validate the token.
-  return csrfProtection(req, res, next);
-});
+//   // For all non-excluded routes, run the CSRF middleware. For safe methods
+//   // (GET/HEAD/OPTIONS) csurf will attach `req.csrfToken()` without rejecting;
+//   // for unsafe methods (POST/PUT/DELETE) it will validate the token.
+// });
 
 // CSRF token endpoint (used by frontend)
-app.get('/api/auth/csrf-token', (req, res) => {
-  try {
-    // Generate and return CSRF token
-    const csrfToken = req.csrfToken();
-    if (!csrfToken) {
-      throw new Error('CSRF token generation failed');
-    }
+// app.get('/api/auth/csrf-token', (req, res) => {
+//   try {
+//     // Generate and return CSRF token
+//     const csrfToken = req.csrfToken();
+//     if (!csrfToken) {
+//       throw new Error('CSRF token generation failed');
+//     }
 
-    // Set a non-httpOnly cookie for the frontend to read
-    res.cookie('XSRF-TOKEN', csrfToken, {
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      httpOnly: false // Allow client-side JavaScript to read this cookie
-    });
+//     // Set a non-httpOnly cookie for the frontend to read
+//     res.cookie('XSRF-TOKEN', csrfToken, {
+//       secure: process.env.NODE_ENV === 'production',
+//       sameSite: 'lax',
+//       path: '/',
+//       httpOnly: false // Allow client-side JavaScript to read this cookie
+//     });
 
-    res.json({ csrfToken });
-  } catch (error) {
-    console.error('Error generating CSRF token:', error);
-    res.status(500).json({
-      error: 'Failed to generate CSRF token',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
+//     res.json({ csrfToken });
+//   } catch (error) {
+//     console.error('Error generating CSRF token:', error);
+//     res.status(500).json({
+//       error: 'Failed to generate CSRF token',
+//       details: process.env.NODE_ENV === 'development' ? error.message : undefined
+//     });
+//   }
+// });
 
-// --------------- LOGGING ----------------
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on("finish", () =>
-    console.log(`[${req.method}] ${req.originalUrl} - ${res.statusCode} (${Date.now() - start}ms)`)
-  );
-  next();
-});
+// // --------------- LOGGING ----------------
+// app.use((req, res, next) => {
+//   const start = Date.now();
+//   res.on("finish", () =>
+//     console.log(`[${req.method}] ${req.originalUrl} - ${res.statusCode} (${Date.now() - start}ms)`)
+//   );
+//   next();
+// });
 
 // --------------- RATE LIMITING ----------------
-app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, max: 200 }));
-app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, max: 50 }));
+// More generous rate limits for better performance
+// app.use('/api', rateLimit({ 
+//   windowMs: 15 * 60 * 1000, 
+//   max: 500, // Increased from 200
+//   standardHeaders: true,
+//   legacyHeaders: false,
+//   skip: (req) => {
+//     // Skip rate limiting for health checks and static assets
+//     return req.path === '/api/health' || req.path.startsWith('/uploads');
+//   }
+// }));
+
+// app.use('/api/auth', rateLimit({ 
+//   windowMs: 15 * 60 * 1000, 
+//   max: 100, // Increased from 50
+//   standardHeaders: true,
+//   legacyHeaders: false
+// }));
 
 // --------------- STATIC ----------------
 app.use('/uploads', express.static(join(__dirname, 'uploads')));
-
-// Remove duplicate MongoDB connection - using the one in connectDB() instead
-
-async function seedData() {
-  try {
-    if (await Course.countDocuments() === 0) await Course.insertMany(initialCourses);
-    if (await Partner.countDocuments() === 0) await Partner.insertMany(initialPartners);
-    if (await Service.countDocuments() === 0) await Service.insertMany(initialServices);
-    if (await BlogPost.countDocuments() === 0) await BlogPost.insertMany(initialBlogPosts);
-    if (await SuccessStory.countDocuments() === 0) await SuccessStory.insertMany(initialSuccessStories);
-
-    if (await User.countDocuments() === 0) {
-      const salt = bcrypt.genSaltSync(10);
-      await User.insertMany([
-        { name: 'Admin User', email: 'admin@sed.com', password: bcrypt.hashSync('adminpassword123', salt), role: 'Admin' },
-        { name: 'Student User', email: 'student@example.com', password: bcrypt.hashSync('password123', salt), role: 'Student' },
-      ]);
-    }
-  } catch (err) {
-    console.error("Seeding error:", err);
-  }
-}
-
-// ---------------- ROUTES ----------------
-// Test route
-app.get('/api/test', (req, res) => {
-  console.log('Test endpoint hit!');
-  res.json({
-    status: 'success',
-    message: 'Backend is working!',
-    timestamp: new Date().toISOString()
-  });
-});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/courses", coursesRoutes);
@@ -396,36 +324,90 @@ app.use("/api/events", eventRoutes);
 // Make broadcastEvent available globally for course updates
 global.broadcastEvent = broadcastEvent;
 
-// ---------------- STATIC ASSETS ----------------
-// Note: Frontend is served separately via Docker container
-
 // ---------------- ERROR HANDLER ----------------
 app.use('/api', notFound);
 app.use(errorHandler);
 
-// ---------------- START SERVER ----------------
-// Only start the server after MongoDB is connected
-const startServer = async () => {
+// ---------------- START SERVER & DB LOGIC ----------------
+
+let server; // Define server globally so error handlers can access it
+
+const connectDB = async () => {
   try {
-    await connectDB();
-    app.listen(port, () => {
-      console.log(`Server running on port ${port}`);
-      console.log(`MongoDB Connected: ${mongoose.connection.host}`);
+    let uri = process.env.MONGO_URI;
+    
+    if (!uri) throw new Error("Could not find MONGODB_URI in Secrets or Env.");
+
+    // Set DNS servers for faster resolution
+    dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '1.0.0.1']);
+    
+    // Optimized MongoDB connection options
+    await mongoose.connect(uri, { 
+      serverSelectionTimeoutMS: 10000, // Increased from 5000
+      socketTimeoutMS: 45000,
+      maxPoolSize: 50, // Connection pooling
+      minPoolSize: 10,
+      maxIdleTimeMS: 30000,
+      compressors: ['zlib'], // Enable compression
+      retryWrites: true,
+      retryReads: true,
+      connectTimeoutMS: 10000,
     });
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
+    
+    // Enable query result caching
+    mongoose.set('debug', process.env.NODE_ENV === 'development');
+    
+    console.log("✅ Server DB Connected with optimized settings");
+  } catch (err) {
+    console.error("❌ MongoDB Connection Error:", err.message);
+    if (process.env.NODE_ENV === 'production') process.exit(1);
   }
 };
 
-// Handle unhandled promise rejections
+const startServer = async () => {
+  await connectDB();
+  // await seedData(); // Execute the seeding logic you defined
+  
+  // Start Express listener
+  server = app.listen(port, () => {
+    const environment = process.env.NODE_ENV || 'development';
+    console.log(`=======================================================`);
+    console.log(`🚀 Server running successfully in ${environment} mode!`);
+    console.log(`📡 URL: http://localhost:${port}`);
+    console.log(`=======================================================`);
+  });
+};
+
+// Handle unhandled promise rejections safely
 process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-  // Close server & exit process
-  server.close(() => process.exit(1));
+  console.error('❌ Unhandled Rejection:', err);
+  if (server) {
+    server.close(() => process.exit(1));
+  } else {
+    process.exit(1);
+  }
 });
 
-// Start the server
+// Production Graceful Shutdown (SIGTERM/SIGINT)
+const gracefulShutdown = () => {
+  console.log('\n⚠️ Received kill signal, shutting down gracefully...');
+  if (server) {
+    server.close(() => {
+      console.log('🛑 HTTP server closed.');
+      mongoose.connection.close(false).then(() => {
+        console.log('🛑 MongoDB connection closed.');
+        process.exit(0);
+      });
+    });
+  } else {
+    process.exit(0);
+  }
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
+// Start the sequence
 startServer();
 
 module.exports = app;

@@ -18,16 +18,16 @@ router.get('/stats', protect, authorize('admin'), async (req, res) => {
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
 
         // Get active students count
-        const activeStudents = await User.countDocuments({ role: 'student' });
+        const activeStudents = await User.countDocuments({ role: 'Student' });
 
         // Get total course enrollments
         const courseEnrollments = await Enrollment.countDocuments();
 
-        // Get new instructors count (mentors added in last 30 days)
+        // Get new instructors count (added in last 30 days)
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const newInstructors = await User.countDocuments({
-            role: 'mentor',
+            role: 'Instructor',
             createdAt: { $gte: thirtyDaysAgo }
         });
 
@@ -74,7 +74,7 @@ router.get('/enrollments/recent', protect, authorize('admin'), async (req, res) 
 
         const enrollments = await Enrollment.find()
             .populate('student', 'name email')
-            .populate('course', 'title')
+            .populate('course', 'name')
             .sort({ enrolledAt: -1 })
             .limit(limit);
 
@@ -82,7 +82,7 @@ router.get('/enrollments/recent', protect, authorize('admin'), async (req, res) 
             id: enrollment._id,
             studentName: enrollment.student?.name || 'Unknown',
             studentEmail: enrollment.student?.email,
-            courseName: enrollment.course?.title || 'Unknown Course',
+            courseName: enrollment.course?.name || 'Unknown Course',
             date: enrollment.enrolledAt,
             status: enrollment.status,
             amount: enrollment.amount
@@ -106,7 +106,7 @@ router.get('/enrollments/recent', protect, authorize('admin'), async (req, res) 
 // @access  Private/Admin
 router.get('/students', protect, authorize('admin'), async (req, res) => {
     try {
-        const students = await User.find({ role: 'student' })
+        const students = await User.find({ role: 'Student' })
             .select('-password')
             .sort({ createdAt: -1 });
 
@@ -129,7 +129,7 @@ router.get('/students', protect, authorize('admin'), async (req, res) => {
 // @access  Private/Admin
 router.get('/instructors', protect, authorize('admin'), async (req, res) => {
     try {
-        const instructors = await User.find({ role: 'mentor' })
+        const instructors = await User.find({ role: 'Instructor' })
             .select('-password')
             .sort({ createdAt: -1 });
 
@@ -227,7 +227,7 @@ router.get('/analytics', protect, authorize('admin'), async (req, res) => {
         const studentGrowth = await User.aggregate([
             {
                 $match: {
-                    role: 'student',
+                    role: 'Student',
                     createdAt: { $gte: sixMonthsAgo }
                 }
             },
@@ -258,7 +258,7 @@ router.get('/analytics', protect, authorize('admin'), async (req, res) => {
 
         const populatedCourses = await Course.populate(coursePerformance, {
             path: '_id',
-            select: 'title'
+            select: 'name'
         });
 
         // SIMULATED DATA FOR "Ap distices" (Andhra Pradesh Districts) & Traffic Sources

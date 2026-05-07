@@ -11,10 +11,15 @@ const enrollmentSchema = new mongoose.Schema({
         ref: 'Course',
         required: true
     },
+    order: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Order',
+        default: null
+    },
     status: {
         type: String,
-        enum: ['pending', 'completed', 'rejected', 'in-progress'],
-        default: 'pending'
+        enum: ['pending', 'active', 'completed', 'rejected', 'in-progress'],
+        default: 'in-progress'
     },
     enrolledAt: {
         type: Date,
@@ -29,21 +34,26 @@ const enrollmentSchema = new mongoose.Schema({
         min: 0,
         max: 100
     },
+    completedLessons: {
+        type: [String],
+        default: []
+    },
     paymentStatus: {
         type: String,
-        enum: ['pending', 'paid', 'failed'],
+        enum: ['free', 'paid', 'pending', 'failed'],
         default: 'pending'
     },
     amount: {
         type: Number,
-        required: true
+        required: true,
+        default: 0
     }
 }, {
     timestamps: true
 });
 
-// Index for faster queries
-enrollmentSchema.index({ student: 1, course: 1 });
+// Unique compound index prevents duplicate enrollments
+enrollmentSchema.index({ student: 1, course: 1 }, { unique: true });
 enrollmentSchema.index({ status: 1 });
 enrollmentSchema.index({ enrolledAt: -1 });
 

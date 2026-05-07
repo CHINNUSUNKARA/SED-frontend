@@ -1,12 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ViewState } from '../../App';
 import {
   LayoutDashboard, BookOpen, Users, GraduationCap, Settings, LogOut,
   Bell, Search, Plus, MoreVertical, TrendingUp, DollarSign,
   Filter, Menu, X, Edit, Trash2, Archive, Mail, CheckCircle, AlertCircle, Download, Award, Check,
   Globe, Shield, CreditCard, Save, Lock, IndianRupee, PieChart, BarChart2, Activity, MousePointer, Clock, MapPin, ArrowUpRight,
-  Phone, Calendar, FileText, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Key, Ban
+  Phone, Calendar, FileText, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Key, Ban,
+  Upload, Image as ImageIcon, Video, Bold, Italic, Underline, List, AlignLeft, Link2
 } from 'lucide-react';
 import { COURSE_CATEGORIES } from '../../constants';
 import { Button } from '../../components/ui/Button';
@@ -17,6 +18,116 @@ import { userService } from '../../services/userService';
 interface AdminDashboardProps {
   onNavigate: (view: ViewState) => void;
 }
+
+interface NewCourseAdmin {
+  title: string;
+  slug: string;
+  tagline: string;
+  shortDescription: string;
+  description: string;
+  courseType: 'live' | 'self-paced';
+  category: string;
+  subCategory: string;
+  level: string;
+  language: string;
+  tags: string;
+  duration: string;
+  totalHours: string;
+  learningObjectives: string;
+  highlights: string;
+  prerequisites: string;
+  targetAudience: string;
+  tools: string;
+  isFree: boolean;
+  price: string;
+  discountedPrice: string;
+  imageUrl: string;
+  bannerUrl: string;
+  promoVideoUrl: string;
+  startDate: string;
+  endDate: string;
+  maxStudents: string;
+  batchName: string;
+  meetingPlatform: string;
+  hasCertification: boolean;
+  instructorId: string;
+}
+
+interface CurriculumConceptForm {
+  title: string;
+  type: 'video' | 'audio' | 'pdf' | 'text' | 'markdown' | 'slides' | 'link' | 'embed' | 'image' | 'notebook';
+  url: string;
+  duration: string;
+  isPreview: boolean;
+}
+
+interface CurriculumWeekForm {
+  weekNumber: number;
+  title: string;
+  description: string;
+  isLocked: boolean;
+  unlockAfterDays: string;
+  concepts: CurriculumConceptForm[];
+  _expanded: boolean;
+}
+
+const RichTextEditor: React.FC<{ label?: string; value: string; onChange: (html: string) => void; placeholder?: string; height?: string }> = ({ label, value, onChange, placeholder, height = 'h-40' }) => {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const isFocused = useRef(false);
+
+  useEffect(() => {
+    if (editorRef.current && value !== editorRef.current.innerHTML) {
+      if (!isFocused.current || value === '') {
+        editorRef.current.innerHTML = value;
+      }
+    }
+  }, [value]);
+
+  const applyFormat = (command: string, val?: string) => {
+    document.execCommand(command, false, val);
+    editorRef.current?.focus();
+  };
+
+  const handleInput = () => {
+    if (editorRef.current) {
+      const html = editorRef.current.innerHTML;
+      onChange(html === '<br>' ? '' : html);
+    }
+  };
+
+  return (
+    <div className="w-full">
+      {label && <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>}
+      <div className="border border-slate-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-brand-500 transition-shadow bg-white flex flex-col">
+        <div className="flex items-center gap-1 p-2 border-b border-slate-200 bg-slate-50 overflow-x-auto flex-shrink-0">
+          <button type="button" onClick={() => applyFormat('bold')} className="p-1.5 hover:bg-slate-200 rounded text-slate-600 transition-colors" title="Bold"><Bold size={16} /></button>
+          <button type="button" onClick={() => applyFormat('italic')} className="p-1.5 hover:bg-slate-200 rounded text-slate-600 transition-colors" title="Italic"><Italic size={16} /></button>
+          <button type="button" onClick={() => applyFormat('underline')} className="p-1.5 hover:bg-slate-200 rounded text-slate-600 transition-colors" title="Underline"><Underline size={16} /></button>
+          <div className="w-px h-4 bg-slate-300 mx-1"></div>
+          <button type="button" onClick={() => applyFormat('insertUnorderedList')} className="p-1.5 hover:bg-slate-200 rounded text-slate-600 transition-colors" title="Bullet List"><List size={16} /></button>
+          <button type="button" onClick={() => applyFormat('justifyLeft')} className="p-1.5 hover:bg-slate-200 rounded text-slate-600 transition-colors" title="Align Left"><AlignLeft size={16} /></button>
+          <div className="w-px h-4 bg-slate-300 mx-1"></div>
+          <button type="button" onClick={() => applyFormat('formatBlock', 'H3')} className="p-1.5 hover:bg-slate-200 rounded text-slate-600 font-bold text-xs transition-colors" title="Heading">H3</button>
+          <button type="button" onClick={() => { const url = prompt('Enter URL:'); if (url) applyFormat('createLink', url); }} className="p-1.5 hover:bg-slate-200 rounded text-slate-600 transition-colors" title="Link"><Link2 size={16} /></button>
+        </div>
+        <div className="relative flex-grow">
+          <div
+            ref={editorRef}
+            className={`p-4 w-full outline-none overflow-y-auto ${height} text-sm text-slate-700 leading-relaxed`}
+            contentEditable
+            onInput={handleInput}
+            onFocus={() => { isFocused.current = true; }}
+            onBlur={() => { isFocused.current = false; }}
+            suppressContentEditableWarning={true}
+          />
+          {(!value || value === '<br>' || value === '') && placeholder && (
+            <div className="absolute top-4 left-4 text-slate-400 text-sm pointer-events-none select-none">{placeholder}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 type Tab = 'overview' | 'courses' | 'students' | 'instructors' | 'settings' | 'analytics';
 
@@ -39,18 +150,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
   // Add Course Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newCourse, setNewCourse] = useState({
-    title: '',
-    tagline: '',
-    description: '',
-    instructor: '',
-    category: 'Development',
-    price: '',
-    duration: '',
-    level: 'Beginner',
-    image: '',
-    lessons: 1
-  });
+  const emptyCourse: NewCourseAdmin = {
+    title: '', slug: '', tagline: '', shortDescription: '', description: '',
+    courseType: 'self-paced', category: 'Development', subCategory: '', level: 'Beginner',
+    language: 'English', tags: '', duration: '', totalHours: '',
+    learningObjectives: '', highlights: '', prerequisites: '', targetAudience: '', tools: '',
+    isFree: false, price: '', discountedPrice: '',
+    imageUrl: '', bannerUrl: '', promoVideoUrl: '',
+    startDate: '', endDate: '', maxStudents: '', batchName: '', meetingPlatform: '',
+    hasCertification: false, instructorId: '',
+  };
+  const [newCourse, setNewCourse] = useState<NewCourseAdmin>(emptyCourse);
+  const [curriculum, setCurriculum] = useState<CurriculumWeekForm[]>([]);
+  const [editingCurriculum, setEditingCurriculum] = useState<CurriculumWeekForm[]>([]);
+
+  // Add Student Modal State
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [newStudent, setNewStudent] = useState({ name: '', email: '', password: '', role: 'Student' });
 
   // Edit Course Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -277,30 +393,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     );
   };
 
+  const emptyWeekForm = (n: number): CurriculumWeekForm => ({
+    weekNumber: n, title: '', description: '', isLocked: false, unlockAfterDays: '', concepts: [], _expanded: true,
+  });
+  const emptyConceptForm = (): CurriculumConceptForm => ({ title: '', type: 'video', url: '', duration: '', isPreview: false });
+
+  // Create-form curriculum helpers
+  const addWeek = () => setCurriculum(prev => [...prev, emptyWeekForm(prev.length + 1)]);
+  const removeWeek = (i: number) => setCurriculum(prev => prev.filter((_, j) => j !== i).map((w, j) => ({ ...w, weekNumber: j + 1 })));
+  const updateWeek = (i: number, ch: Partial<CurriculumWeekForm>) => setCurriculum(prev => prev.map((w, j) => j === i ? { ...w, ...ch } : w));
+  const addWeekConcept = (wi: number) => setCurriculum(prev => prev.map((w, j) => j === wi ? { ...w, concepts: [...w.concepts, emptyConceptForm()] } : w));
+  const removeWeekConcept = (wi: number, ci: number) => setCurriculum(prev => prev.map((w, j) => j === wi ? { ...w, concepts: w.concepts.filter((_, k) => k !== ci) } : w));
+  const updateWeekConcept = (wi: number, ci: number, ch: Partial<CurriculumConceptForm>) => setCurriculum(prev => prev.map((w, j) => j === wi ? { ...w, concepts: w.concepts.map((c, k) => k === ci ? { ...c, ...ch } : c) } : w));
+
+  // Edit-modal curriculum helpers
+  const addEditWeek = () => setEditingCurriculum(prev => [...prev, emptyWeekForm(prev.length + 1)]);
+  const removeEditWeek = (i: number) => setEditingCurriculum(prev => prev.filter((_, j) => j !== i).map((w, j) => ({ ...w, weekNumber: j + 1 })));
+  const updateEditWeek = (i: number, ch: Partial<CurriculumWeekForm>) => setEditingCurriculum(prev => prev.map((w, j) => j === i ? { ...w, ...ch } : w));
+  const addEditWeekConcept = (wi: number) => setEditingCurriculum(prev => prev.map((w, j) => j === wi ? { ...w, concepts: [...w.concepts, emptyConceptForm()] } : w));
+  const removeEditWeekConcept = (wi: number, ci: number) => setEditingCurriculum(prev => prev.map((w, j) => j === wi ? { ...w, concepts: w.concepts.filter((_, k) => k !== ci) } : w));
+  const updateEditWeekConcept = (wi: number, ci: number, ch: Partial<CurriculumConceptForm>) => setEditingCurriculum(prev => prev.map((w, j) => j === wi ? { ...w, concepts: w.concepts.map((c, k) => k === ci ? { ...c, ...ch } : c) } : w));
+
+  const serializeCurriculum = (weeks: CurriculumWeekForm[]) =>
+    weeks.filter(w => w.title.trim()).map(w => ({
+      weekNumber: w.weekNumber,
+      title: w.title,
+      description: w.description,
+      isLocked: w.isLocked,
+      unlockAfterDays: w.unlockAfterDays ? Number(w.unlockAfterDays) : undefined,
+      concepts: w.concepts.filter(c => c.title.trim()).map(c => ({
+        title: c.title,
+        type: c.type,
+        url: c.url || undefined,
+        duration: c.duration ? Number(c.duration) * 60 : undefined,
+        isPreview: c.isPreview,
+      })),
+    }));
+
   const handleAddCourse = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const errors: string[] = [];
-
     if (!newCourse.title.trim()) errors.push("Course Title is required");
     if (!newCourse.description.trim()) errors.push("Description is required");
-    if (!newCourse.instructor.trim()) errors.push("Instructor is required");
-    if (!newCourse.duration.trim()) errors.push("Duration is required");
-
-    // Validate Price
-    if (!newCourse.price.trim()) {
-      errors.push("Price is required");
-    } else {
-      const priceNum = parseFloat(newCourse.price.replace(/[^0-9.]/g, ''));
-      if (isNaN(priceNum) || priceNum < 0) {
-        errors.push("Price must be a valid positive number (e.g., ₹19,999)");
-      }
-    }
-
-    // Validate Lessons
-    if (newCourse.lessons <= 0) {
-      errors.push("Lessons must be greater than 0");
-    }
+    if (!newCourse.instructorId) errors.push("Instructor is required");
+    if (!newCourse.isFree && !newCourse.price.trim()) errors.push("Price is required (or mark course as free)");
 
     if (errors.length > 0) {
       alert("Validation Failed:\n\n• " + errors.join("\n• "));
@@ -308,54 +445,81 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     }
 
     try {
-      const slug = newCourse.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const selectedInstructor = instructors.find((i: any) => i.id === newCourse.instructorId || i._id === newCourse.instructorId);
       const coursePayload = {
         name: newCourse.title,
-        slug: slug,
+        slug: newCourse.slug || newCourse.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         tagline: newCourse.tagline,
+        shortDescription: newCourse.shortDescription,
         description: newCourse.description,
-        instructor: newCourse.instructor,
+        courseType: newCourse.courseType,
+        instructor: { name: selectedInstructor?.name || '', id: newCourse.instructorId },
         category: newCourse.category,
-        pricing: {
-          amount: parseFloat(newCourse.price.replace(/[^0-9.]/g, '')) || 0,
-          currency: 'INR'
-        },
-        duration: newCourse.duration,
+        subCategory: newCourse.subCategory,
         level: newCourse.level,
-        imageUrl: newCourse.image,
-        lessons: newCourse.lessons,
+        language: newCourse.language,
+        tags: newCourse.tags.split(',').map(t => t.trim()).filter(Boolean),
+        duration: newCourse.duration,
+        totalHours: newCourse.totalHours ? Number(newCourse.totalHours) : undefined,
+        learningObjectives: newCourse.learningObjectives.split('\n').filter(Boolean),
+        highlights: newCourse.highlights.split('\n').filter(Boolean),
+        prerequisites: newCourse.prerequisites.split('\n').filter(Boolean),
+        targetAudience: newCourse.targetAudience.split('\n').filter(Boolean),
+        tools: newCourse.tools.split(',').map(t => t.trim()).filter(Boolean),
+        pricing: {
+          isFree: newCourse.isFree,
+          amount: newCourse.isFree ? 0 : (parseFloat(newCourse.price) || 0),
+          discountedAmount: newCourse.discountedPrice ? parseFloat(newCourse.discountedPrice) : undefined,
+          currency: 'INR',
+        },
+        imageUrl: newCourse.imageUrl,
+        bannerUrl: newCourse.bannerUrl,
+        promoVideoUrl: newCourse.promoVideoUrl,
+        hasCertification: newCourse.hasCertification,
+        curriculum: serializeCurriculum(curriculum),
+        ...(newCourse.courseType === 'live' && {
+          batchName: newCourse.batchName,
+          startDate: newCourse.startDate,
+          endDate: newCourse.endDate,
+          maxStudents: newCourse.maxStudents ? Number(newCourse.maxStudents) : undefined,
+          meetingPlatform: newCourse.meetingPlatform,
+        }),
       };
 
       await adminService.createCourse(coursePayload);
 
-      // Refresh courses
       const coursesResponse = await adminService.getAllCourses();
-      if (coursesResponse.success) {
-        setCoursesList(coursesResponse.data);
-      } else if (Array.isArray(coursesResponse)) {
-        // Handle different response formats if needed
-        setCoursesList(coursesResponse);
-      }
+      if (coursesResponse.success) setCoursesList(coursesResponse.data);
 
-      alert(`Course "${newCourse.title}" added successfully!`);
+      alert(`Course "${newCourse.title}" created successfully!`);
       setIsAddModalOpen(false);
-
-      // Reset Form
-      setNewCourse({
-        title: '',
-        tagline: '',
-        description: '',
-        instructor: '',
-        category: 'Development',
-        price: '',
-        duration: '',
-        level: 'Beginner',
-        image: '',
-        lessons: 1
-      });
+      setNewCourse(emptyCourse);
+      setCurriculum([]);
     } catch (err: any) {
       console.error("Failed to add course:", err);
       alert("Failed to add course: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleAddStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStudent.name || !newStudent.email || !newStudent.password) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+    try {
+      await adminService.createUser(newStudent);
+      alert("Student added successfully!");
+      setIsAddStudentModalOpen(false);
+      setNewStudent({ name: '', email: '', password: '', role: 'Student' });
+      const studentsResponse = await adminService.getAllStudents();
+      if (studentsResponse.success) {
+        setStudents(studentsResponse.data);
+        setStudentsList(studentsResponse.data);
+      }
+    } catch (err: any) {
+      console.error("Failed to add student", err);
+      alert("Failed to add student: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -383,11 +547,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   };
 
   const handleEditCourse = (course: any) => {
-    // Load course data into editing state
-    setEditingCourse({
-      ...course,
-      price: course.price?.toString() || ''
-    });
+    setEditingCourse({ ...course, price: course.price?.toString() || '' });
+    const loaded: CurriculumWeekForm[] = (course.curriculum || []).map((w: any, i: number) => ({
+      weekNumber: w.weekNumber || i + 1,
+      title: w.title || '',
+      description: w.description || '',
+      isLocked: w.isLocked || false,
+      unlockAfterDays: w.unlockAfterDays != null ? String(w.unlockAfterDays) : '',
+      concepts: (w.concepts || []).map((c: any) => ({
+        title: c.title || '',
+        type: c.type || 'video',
+        url: c.url || '',
+        duration: c.duration ? String(Math.round(c.duration / 60)) : '',
+        isPreview: c.isPreview || false,
+      })),
+      _expanded: false,
+    }));
+    setEditingCurriculum(loaded);
     setIsEditModalOpen(true);
   };
 
@@ -423,19 +599,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     try {
       const coursePayload = {
         name: editingCourse.title,
+        slug: editingCourse.slug,
         tagline: editingCourse.tagline || '',
         description: editingCourse.description,
-        instructor: editingCourse.instructor,
+        // instructor from admin API is already a string (transformed name); re-wrap as object
+        instructor: { name: typeof editingCourse.instructor === 'string' ? editingCourse.instructor : editingCourse.instructor?.name || '' },
         category: editingCourse.category,
         pricing: {
           amount: parseFloat(editingCourse.price.toString().replace(/[^0-9.]/g, '')) || 0,
           currency: 'INR'
         },
         duration: editingCourse.duration,
-        level: editingCourse.level || 'Beginner',
         imageUrl: editingCourse.image,
-        lessons: editingCourse.lessons || 0,
-        slug: editingCourse.slug
+        curriculum: serializeCurriculum(editingCurriculum),
       };
 
       await adminService.updateCourse(editingCourse.slug, coursePayload);
@@ -449,6 +625,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       alert(`Course "${editingCourse.title}" updated successfully!`);
       setIsEditModalOpen(false);
       setEditingCourse(null);
+      setEditingCurriculum([]);
     } catch (err: any) {
       console.error("Failed to update course:", err);
       alert("Failed to update course: " + (err.response?.data?.message || err.message));
@@ -636,140 +813,398 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       {/* Add Course Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 flex-shrink-0">
-              <h3 className="text-xl font-bold text-slate-900">Add New Course</h3>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden animate-fade-in-up max-h-[92vh] flex flex-col">
+            <div className="flex justify-between items-center px-8 py-5 border-b border-slate-100 bg-slate-50 flex-shrink-0">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Create New Course</h3>
+                <p className="text-sm text-slate-500">Fill in the details to publish a new course on the platform.</p>
+              </div>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleAddCourse} className="p-6 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Course Title <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                    placeholder="e.g. Advanced React Patterns"
-                    value={newCourse.title}
-                    onChange={e => setNewCourse({ ...newCourse, title: e.target.value })}
-                  />
-                </div>
+            <form onSubmit={handleAddCourse} className="flex-1 overflow-y-auto px-8 py-6">
+              <div className="space-y-8">
 
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tagline <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                    placeholder="Short course tagline..."
-                    value={newCourse.tagline}
-                    onChange={e => setNewCourse({ ...newCourse, tagline: e.target.value })}
-                  />
-                </div>
+                {/* 1. Basic Information */}
+                <section>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">1. Basic Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Course Title <span className="text-red-500">*</span></label>
+                      <input type="text" required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g. Advanced Microservices Patterns with Spring Boot"
+                        value={newCourse.title}
+                        onChange={e => setNewCourse({ ...newCourse, title: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">URL Slug</label>
+                      <input type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none font-mono text-sm" placeholder="auto-generated-from-title"
+                        value={newCourse.slug} onChange={e => setNewCourse({ ...newCourse, slug: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Tagline</label>
+                      <input type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="A short, catchy one-liner for the course"
+                        value={newCourse.tagline} onChange={e => setNewCourse({ ...newCourse, tagline: e.target.value })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Short Description <span className="text-slate-400 text-xs">(max 300 chars)</span></label>
+                      <textarea rows={2} maxLength={300} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none resize-none text-sm" placeholder="Brief overview shown on course cards..."
+                        value={newCourse.shortDescription} onChange={e => setNewCourse({ ...newCourse, shortDescription: e.target.value })}
+                      />
+                      <p className="text-xs text-slate-400 text-right mt-1">{newCourse.shortDescription.length}/300</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <RichTextEditor label="Full Description *" value={newCourse.description}
+                        onChange={(html) => setNewCourse({ ...newCourse, description: html })}
+                        placeholder="Describe the course in detail..."
+                      />
+                    </div>
+                  </div>
+                </section>
 
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Description <span className="text-red-500">*</span></label>
-                  <textarea
-                    required
-                    rows={3}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none resize-none"
-                    placeholder="Brief summary of the course content..."
-                    value={newCourse.description}
-                    onChange={e => setNewCourse({ ...newCourse, description: e.target.value })}
-                  />
-                </div>
+                {/* 2. Instructor & Course Settings */}
+                <section>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">2. Instructor & Settings</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Assign Instructor <span className="text-red-500">*</span></label>
+                      <select required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                        value={newCourse.instructorId} onChange={e => setNewCourse({ ...newCourse, instructorId: e.target.value })}
+                      >
+                        <option value="">— Select an instructor —</option>
+                        {instructors.map((inst: any) => (
+                          <option key={inst.id || inst._id} value={inst.id || inst._id}>{inst.name} {inst.email ? `(${inst.email})` : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Course Type</label>
+                      <select className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                        value={newCourse.courseType} onChange={e => setNewCourse({ ...newCourse, courseType: e.target.value as 'live' | 'self-paced' })}
+                      >
+                        <option value="self-paced">Self-Paced</option>
+                        <option value="live">Live</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Category <span className="text-red-500">*</span></label>
+                      <select className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                        value={newCourse.category} onChange={e => setNewCourse({ ...newCourse, category: e.target.value })}
+                      >
+                        {COURSE_CATEGORIES.filter(c => c !== 'All').map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Sub-Category</label>
+                      <input type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g. Backend, DevOps"
+                        value={newCourse.subCategory} onChange={e => setNewCourse({ ...newCourse, subCategory: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Difficulty Level</label>
+                      <select className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                        value={newCourse.level} onChange={e => setNewCourse({ ...newCourse, level: e.target.value })}
+                      >
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                        <option value="All">All Levels</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Language</label>
+                      <input type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="English"
+                        value={newCourse.language} onChange={e => setNewCourse({ ...newCourse, language: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Duration</label>
+                      <input type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g. 8 Weeks"
+                        value={newCourse.duration} onChange={e => setNewCourse({ ...newCourse, duration: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Total Hours</label>
+                      <input type="number" min="0" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g. 40"
+                        value={newCourse.totalHours} onChange={e => setNewCourse({ ...newCourse, totalHours: e.target.value })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Tags <span className="text-slate-400 text-xs">(comma-separated)</span></label>
+                      <input type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g. Java, Spring Boot, Docker"
+                        value={newCourse.tags} onChange={e => setNewCourse({ ...newCourse, tags: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </section>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Instructor <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                    placeholder="Instructor Name"
-                    value={newCourse.instructor}
-                    onChange={e => setNewCourse({ ...newCourse, instructor: e.target.value })}
-                  />
-                </div>
+                {/* 3. Learning Details */}
+                <section>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">3. Learning Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Learning Objectives <span className="text-slate-400 text-xs">(one per line)</span></label>
+                      <textarea rows={4} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none resize-none text-sm" placeholder="Build REST APIs&#10;Deploy on AWS"
+                        value={newCourse.learningObjectives} onChange={e => setNewCourse({ ...newCourse, learningObjectives: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Course Highlights <span className="text-slate-400 text-xs">(one per line)</span></label>
+                      <textarea rows={4} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none resize-none text-sm" placeholder="Certificate of completion&#10;24x7 mentor support"
+                        value={newCourse.highlights} onChange={e => setNewCourse({ ...newCourse, highlights: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Prerequisites <span className="text-slate-400 text-xs">(one per line)</span></label>
+                      <textarea rows={3} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none resize-none text-sm" placeholder="Basic Java knowledge"
+                        value={newCourse.prerequisites} onChange={e => setNewCourse({ ...newCourse, prerequisites: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Target Audience <span className="text-slate-400 text-xs">(one per line)</span></label>
+                      <textarea rows={3} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none resize-none text-sm" placeholder="Java developers&#10;Backend engineers"
+                        value={newCourse.targetAudience} onChange={e => setNewCourse({ ...newCourse, targetAudience: e.target.value })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Tools & Technologies <span className="text-slate-400 text-xs">(comma-separated)</span></label>
+                      <input type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g. Spring Boot, Docker, PostgreSQL"
+                        value={newCourse.tools} onChange={e => setNewCourse({ ...newCourse, tools: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </section>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-                  <select
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
-                    value={newCourse.category}
-                    onChange={e => setNewCourse({ ...newCourse, category: e.target.value })}
-                  >
-                    {COURSE_CATEGORIES.filter(cat => cat !== 'All').map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
+                {/* 4. Pricing */}
+                <section>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">4. Pricing</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
+                    <div className="flex items-center gap-3 pt-8">
+                      <input id="adminIsFree" type="checkbox" className="w-4 h-4 text-brand-600 border-slate-300 rounded focus:ring-brand-500"
+                        checked={newCourse.isFree} onChange={e => setNewCourse({ ...newCourse, isFree: e.target.checked, price: '', discountedPrice: '' })}
+                      />
+                      <label htmlFor="adminIsFree" className="text-sm font-medium text-slate-700">Free Course</label>
+                    </div>
+                    <div className={newCourse.isFree ? 'opacity-40 pointer-events-none' : ''}>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Price (INR) {!newCourse.isFree && <span className="text-red-500">*</span>}</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">₹</span>
+                        <input type="number" min="0" className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="49999"
+                          value={newCourse.price} onChange={e => setNewCourse({ ...newCourse, price: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className={newCourse.isFree ? 'opacity-40 pointer-events-none' : ''}>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Discounted Price (INR)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">₹</span>
+                        <input type="number" min="0" className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="39999"
+                          value={newCourse.discountedPrice} onChange={e => setNewCourse({ ...newCourse, discountedPrice: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* 5. Media */}
+                <section>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">5. Media</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Thumbnail / Course Image URL</label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-grow">
+                          <ImageIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input type="url" className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="https://example.com/thumbnail.jpg"
+                            value={newCourse.imageUrl} onChange={e => setNewCourse({ ...newCourse, imageUrl: e.target.value })}
+                          />
+                        </div>
+                        <Button type="button" variant="outline" size="sm"><Upload size={15} /></Button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Banner Image URL</label>
+                      <div className="relative">
+                        <ImageIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input type="url" className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="https://example.com/banner.jpg"
+                          value={newCourse.bannerUrl} onChange={e => setNewCourse({ ...newCourse, bannerUrl: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Promo Video URL</label>
+                      <div className="relative">
+                        <Video size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input type="url" className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="https://youtube.com/watch?v=..."
+                          value={newCourse.promoVideoUrl} onChange={e => setNewCourse({ ...newCourse, promoVideoUrl: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* 6. Live Course Details (conditional) */}
+                {newCourse.courseType === 'live' && (
+                  <section>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">6. Live Course Details</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Batch Name</label>
+                        <input type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g. Batch 12 – Jan 2026"
+                          value={newCourse.batchName} onChange={e => setNewCourse({ ...newCourse, batchName: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                        <input type="date" title="Course Start Date" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                          value={newCourse.startDate} onChange={e => setNewCourse({ ...newCourse, startDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+                        <input type="date" title="Course End Date" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                          value={newCourse.endDate} onChange={e => setNewCourse({ ...newCourse, endDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Max Students</label>
+                        <input type="number" min="1" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="50"
+                          value={newCourse.maxStudents} onChange={e => setNewCourse({ ...newCourse, maxStudents: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Meeting Platform</label>
+                        <select title="Meeting Platform" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                          value={newCourse.meetingPlatform} onChange={e => setNewCourse({ ...newCourse, meetingPlatform: e.target.value })}
+                        >
+                          <option value="">Select platform</option>
+                          <option value="zoom">Zoom</option>
+                          <option value="google_meet">Google Meet</option>
+                          <option value="microsoft_teams">Microsoft Teams</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* 7. Certification */}
+                <section>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">{newCourse.courseType === 'live' ? '7' : '6'}. Certification</h4>
+                  <div className="flex items-center gap-3">
+                    <input id="adminHasCert" type="checkbox" className="w-4 h-4 text-brand-600 border-slate-300 rounded focus:ring-brand-500"
+                      checked={newCourse.hasCertification} onChange={e => setNewCourse({ ...newCourse, hasCertification: e.target.checked })}
+                    />
+                    <label htmlFor="adminHasCert" className="text-sm font-medium text-slate-700">Issue Certificate of Completion</label>
+                    {newCourse.hasCertification && (
+                      <span className="ml-2 text-xs bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Award size={12} /> Enabled
+                      </span>
+                    )}
+                  </div>
+                </section>
+
+                {/* Curriculum */}
+                <section>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">
+                    {newCourse.courseType === 'live' ? '8' : '7'}. Curriculum
+                  </h4>
+                  <div className="space-y-3">
+                    {curriculum.map((week, wIdx) => (
+                      <div key={wIdx} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                        <div className="flex items-center gap-2 px-4 py-3 bg-slate-50">
+                          <span className="text-xs font-bold text-brand-600 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full flex-shrink-0">Week {week.weekNumber}</span>
+                          <input
+                            type="text"
+                            className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                            placeholder="Module title e.g. Introduction & Setup"
+                            value={week.title}
+                            onChange={e => updateWeek(wIdx, { title: e.target.value })}
+                          />
+                          <button type="button" onClick={() => updateWeek(wIdx, { _expanded: !week._expanded })} className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors" title={week._expanded ? 'Collapse' : 'Expand'}>
+                            <ChevronDown size={16} className={`transition-transform ${week._expanded ? 'rotate-180' : ''}`} />
+                          </button>
+                          <button type="button" onClick={() => removeWeek(wIdx)} className="p-1.5 text-red-400 hover:text-red-600 transition-colors" title="Remove week">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        {week._expanded && (
+                          <div className="p-4 border-t border-slate-100 space-y-4">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Description (optional)</label>
+                              <textarea rows={2} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none resize-none" placeholder="What students will cover in this week..." value={week.description} onChange={e => updateWeek(wIdx, { description: e.target.value })} />
+                            </div>
+                            <div className="flex items-center gap-4 flex-wrap">
+                              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                                <input type="checkbox" className="w-4 h-4 text-brand-600 border-slate-300 rounded focus:ring-brand-500" checked={week.isLocked} onChange={e => updateWeek(wIdx, { isLocked: e.target.checked })} />
+                                <Lock size={13} className="text-slate-400" /> Lock (drip content)
+                              </label>
+                              {week.isLocked && (
+                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                  <span className="text-xs">Unlock after</span>
+                                  <input type="number" min="0" className="w-16 px-2 py-1 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="7" value={week.unlockAfterDays} onChange={e => updateWeek(wIdx, { unlockAfterDays: e.target.value })} />
+                                  <span className="text-xs">days</span>
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lessons / Concepts ({week.concepts.length})</span>
+                                <button type="button" onClick={() => addWeekConcept(wIdx)} className="text-xs text-brand-600 hover:text-brand-700 font-semibold flex items-center gap-1 hover:underline"><Plus size={13} /> Add Lesson</button>
+                              </div>
+                              <div className="space-y-2">
+                                {week.concepts.map((concept, cIdx) => (
+                                  <div key={cIdx} className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <input type="text" className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Lesson title" value={concept.title} onChange={e => updateWeekConcept(wIdx, cIdx, { title: e.target.value })} />
+                                      <select title="Content type" className="w-28 px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none bg-white" value={concept.type} onChange={e => updateWeekConcept(wIdx, cIdx, { type: e.target.value as CurriculumConceptForm['type'] })}>
+                                        <option value="video">Video</option>
+                                        <option value="audio">Audio</option>
+                                        <option value="pdf">PDF</option>
+                                        <option value="text">Text</option>
+                                        <option value="markdown">Markdown</option>
+                                        <option value="slides">Slides</option>
+                                        <option value="link">Link</option>
+                                        <option value="embed">Embed</option>
+                                        <option value="image">Image</option>
+                                        <option value="notebook">Notebook</option>
+                                      </select>
+                                      <button type="button" title="Remove lesson" onClick={() => removeWeekConcept(wIdx, cIdx)} className="text-red-400 hover:text-red-600 p-1 flex-shrink-0"><Trash2 size={14} /></button>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <input type="url" className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="URL / link (optional)" value={concept.url} onChange={e => updateWeekConcept(wIdx, cIdx, { url: e.target.value })} />
+                                      <input type="number" min="0" className="w-28 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Duration (min)" value={concept.duration} onChange={e => updateWeekConcept(wIdx, cIdx, { duration: e.target.value })} />
+                                      <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none flex-shrink-0">
+                                        <input type="checkbox" className="w-3.5 h-3.5 text-brand-600 border-slate-300 rounded" checked={concept.isPreview} onChange={e => updateWeekConcept(wIdx, cIdx, { isPreview: e.target.checked })} />
+                                        Preview
+                                      </label>
+                                    </div>
+                                  </div>
+                                ))}
+                                {week.concepts.length === 0 && (
+                                  <div className="text-center py-3 text-xs text-slate-400 border border-dashed border-slate-200 rounded-lg">No lessons added yet</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     ))}
-                  </select>
-                </div>
+                    <button type="button" onClick={addWeek} className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-sm text-slate-500 hover:border-brand-400 hover:text-brand-600 transition-colors flex items-center justify-center gap-2 font-medium">
+                      <Plus size={16} /> Add Week / Module
+                    </button>
+                  </div>
+                </section>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Price <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="₹19,999"
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                    value={newCourse.price}
-                    onChange={e => setNewCourse({ ...newCourse, price: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Duration <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 4 Weeks"
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                    value={newCourse.duration}
-                    onChange={e => setNewCourse({ ...newCourse, duration: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Level</label>
-                  <select
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
-                    value={newCourse.level}
-                    onChange={e => setNewCourse({ ...newCourse, level: e.target.value })}
-                  >
-                    <option value="Beginner">Beginner</option>
-                    <option value="Intermediate">Intermediate</option>
-                    <option value="Advanced">Advanced</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Lessons <span className="text-red-500">*</span></label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                    value={newCourse.lessons}
-                    onChange={e => setNewCourse({ ...newCourse, lessons: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Image URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://..."
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                    value={newCourse.image}
-                    onChange={e => setNewCourse({ ...newCourse, image: e.target.value })}
-                  />
-                </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-8 mt-2">
-                <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
+              <div className="flex justify-end gap-3 pt-8 mt-2 border-t border-slate-100">
+                <Button type="button" variant="outline" onClick={() => { setIsAddModalOpen(false); setNewCourse(emptyCourse); setCurriculum([]); }}>Cancel</Button>
+                <Button type="button" variant="secondary" className="bg-slate-200 text-slate-700 hover:bg-slate-300 border-none" onClick={() => alert('Draft saving not yet implemented')}>Save Draft</Button>
                 <Button type="submit">Create Course</Button>
               </div>
             </form>
@@ -916,10 +1351,83 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                     onChange={e => setEditingCourse({ ...editingCourse, image: e.target.value })}
                   />
                 </div>
+
+                {/* Curriculum */}
+                <div className="col-span-2 mt-2">
+                  <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2 border-t border-slate-100 pt-4">
+                    <BookOpen size={16} className="text-brand-600" /> Curriculum
+                  </h4>
+                  <div className="space-y-3">
+                    {editingCurriculum.map((week, wIdx) => (
+                      <div key={wIdx} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                        <div className="flex items-center gap-2 px-4 py-3 bg-slate-50">
+                          <span className="text-xs font-bold text-brand-600 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full flex-shrink-0">Week {week.weekNumber}</span>
+                          <input type="text" className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Module title" value={week.title} onChange={e => updateEditWeek(wIdx, { title: e.target.value })} />
+                          <button type="button" title={week._expanded ? 'Collapse' : 'Expand'} onClick={() => updateEditWeek(wIdx, { _expanded: !week._expanded })} className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors">
+                            <ChevronDown size={16} className={`transition-transform ${week._expanded ? 'rotate-180' : ''}`} />
+                          </button>
+                          <button type="button" title="Remove week" onClick={() => removeEditWeek(wIdx)} className="p-1.5 text-red-400 hover:text-red-600 transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        {week._expanded && (
+                          <div className="p-4 border-t border-slate-100 space-y-4">
+                            <textarea rows={2} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none resize-none" placeholder="Week description (optional)" value={week.description} onChange={e => updateEditWeek(wIdx, { description: e.target.value })} />
+                            <div className="flex items-center gap-4 flex-wrap">
+                              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                                <input type="checkbox" className="w-4 h-4 text-brand-600 border-slate-300 rounded focus:ring-brand-500" checked={week.isLocked} onChange={e => updateEditWeek(wIdx, { isLocked: e.target.checked })} />
+                                <Lock size={13} className="text-slate-400" /> Lock (drip)
+                              </label>
+                              {week.isLocked && (
+                                <div className="flex items-center gap-2 text-xs text-slate-600">
+                                  <span>Unlock after</span>
+                                  <input type="number" min="0" className="w-16 px-2 py-1 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="7" value={week.unlockAfterDays} onChange={e => updateEditWeek(wIdx, { unlockAfterDays: e.target.value })} />
+                                  <span>days</span>
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lessons ({week.concepts.length})</span>
+                                <button type="button" onClick={() => addEditWeekConcept(wIdx)} className="text-xs text-brand-600 hover:text-brand-700 font-semibold flex items-center gap-1 hover:underline"><Plus size={13} /> Add Lesson</button>
+                              </div>
+                              <div className="space-y-2">
+                                {week.concepts.map((concept, cIdx) => (
+                                  <div key={cIdx} className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <input type="text" className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Lesson title" value={concept.title} onChange={e => updateEditWeekConcept(wIdx, cIdx, { title: e.target.value })} />
+                                      <select title="Content type" className="w-28 px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none bg-white" value={concept.type} onChange={e => updateEditWeekConcept(wIdx, cIdx, { type: e.target.value as CurriculumConceptForm['type'] })}>
+                                        <option value="video">Video</option><option value="audio">Audio</option><option value="pdf">PDF</option><option value="text">Text</option><option value="markdown">Markdown</option><option value="slides">Slides</option><option value="link">Link</option><option value="embed">Embed</option><option value="image">Image</option><option value="notebook">Notebook</option>
+                                      </select>
+                                      <button type="button" title="Remove lesson" onClick={() => removeEditWeekConcept(wIdx, cIdx)} className="text-red-400 hover:text-red-600 p-1 flex-shrink-0"><Trash2 size={14} /></button>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <input type="url" className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="URL (optional)" value={concept.url} onChange={e => updateEditWeekConcept(wIdx, cIdx, { url: e.target.value })} />
+                                      <input type="number" min="0" className="w-28 px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Duration (min)" value={concept.duration} onChange={e => updateEditWeekConcept(wIdx, cIdx, { duration: e.target.value })} />
+                                      <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none flex-shrink-0">
+                                        <input type="checkbox" className="w-3.5 h-3.5 text-brand-600 border-slate-300 rounded" checked={concept.isPreview} onChange={e => updateEditWeekConcept(wIdx, cIdx, { isPreview: e.target.checked })} /> Preview
+                                      </label>
+                                    </div>
+                                  </div>
+                                ))}
+                                {week.concepts.length === 0 && (
+                                  <div className="text-center py-3 text-xs text-slate-400 border border-dashed border-slate-200 rounded-lg">No lessons added yet</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" onClick={addEditWeek} className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-sm text-slate-500 hover:border-brand-400 hover:text-brand-600 transition-colors flex items-center justify-center gap-2 font-medium">
+                      <Plus size={16} /> Add Week / Module
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-8 mt-2">
-                <Button type="button" variant="outline" onClick={() => { setIsEditModalOpen(false); setEditingCourse(null); }} disabled={isUpdating}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => { setIsEditModalOpen(false); setEditingCourse(null); setEditingCurriculum([]); }} disabled={isUpdating}>Cancel</Button>
                 <Button type="submit" disabled={isUpdating}>
                   {isUpdating ? <span className="flex items-center gap-2"><RefreshCw size={16} className="animate-spin" /> Updating...</span> : 'Update Course'}
                 </Button>
@@ -990,6 +1498,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               <div className="flex justify-end gap-3 pt-6 mt-2">
                 <Button type="button" variant="outline" onClick={() => setIsAddInstructorModalOpen(false)}>Cancel</Button>
                 <Button type="submit">Add Instructor</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Student Modal */}
+      {isAddStudentModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100">
+              <h3 className="text-xl font-bold text-slate-900">Add New Student</h3>
+              <button type="button" onClick={() => setIsAddStudentModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleAddStudent} className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Full Name <span className="text-red-500">*</span></label>
+                  <input type="text" required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g. Ravi Kumar"
+                    value={newStudent.name} onChange={e => setNewStudent({ ...newStudent, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-red-500">*</span></label>
+                  <input type="email" required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g. ravi@example.com"
+                    value={newStudent.email} onChange={e => setNewStudent({ ...newStudent, email: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Temporary Password <span className="text-red-500">*</span></label>
+                  <input type="text" required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g. TempPass123"
+                    value={newStudent.password} onChange={e => setNewStudent({ ...newStudent, password: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-6 mt-2">
+                <Button type="button" variant="outline" onClick={() => setIsAddStudentModalOpen(false)}>Cancel</Button>
+                <Button type="submit">Add Student</Button>
               </div>
             </form>
           </div>
@@ -1989,6 +2537,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                       />
                     </div>
                     <Button variant="outline" className="hidden sm:flex"><Download size={18} className="mr-2" /> Export</Button>
+                    <Button onClick={() => setIsAddStudentModalOpen(true)}><Plus size={18} className="mr-2" /> Add Student</Button>
                   </div>
                 </div>
 

@@ -19,7 +19,7 @@ router.post('/', protectInstructor, assignmentValidator, async (req, res) => {
             courseId,
             deadline,
             maxScore,
-            createdBy: req.user.id
+            createdBy: req.user.userId
         });
 
         // Add assignment to course
@@ -53,7 +53,7 @@ router.post('/:id/submit', protectStudent, submissionValidator, async (req, res)
     try {
         const { fileUrl, textSubmission } = req.body;
         const assignmentId = req.params.id;
-        const studentId = req.user.id;
+        const studentId = req.user.userId;
 
         // Check if already submitted
         const existingSubmission = await StudentSubmission.findOne({ assignmentId, studentId });
@@ -89,7 +89,7 @@ router.put('/submission/:id/grade', protectInstructor, gradeValidator, async (re
 
         const submission = await StudentSubmission.findByIdAndUpdate(
             req.params.id,
-            { grade, feedback, gradedBy: req.user.id },
+            { grade, feedback, gradedBy: req.user.userId },
             { new: true }
         );
 
@@ -126,7 +126,7 @@ router.get('/:id/submissions', protectInstructor, async (req, res) => {
 // @access  Student
 router.get('/my-submissions', protectStudent, async (req, res) => {
     try {
-        const submissions = await StudentSubmission.find({ studentId: req.user.id })
+        const submissions = await StudentSubmission.find({ studentId: req.user.userId })
             .populate('assignmentId', 'title description deadline maxScore courseId')
             .populate({
                 path: 'assignmentId',

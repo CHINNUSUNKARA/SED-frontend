@@ -2,6 +2,7 @@ const express = require('express');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Course = require('../models/Course');
+const { protectAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ const router = express.Router();
 // GET /api/analytics/stats
 // Returns generic dashboard statistics for admin view.
 // -----------------------------------------------------------------------------
-router.get('/stats', async (_req, res) => {
+router.get('/stats', protectAdmin, async (_req, res) => {
   try {
     // Total revenue (completed orders only)
     const revenueAgg = await Order.aggregate([
@@ -52,14 +53,14 @@ router.get('/stats', async (_req, res) => {
 // ?limit=5 (optional)
 // Returns recent course enrollments based on Order creation time.
 // -----------------------------------------------------------------------------
-router.get('/recent-enrollments', async (req, res) => {
+router.get('/recent-enrollments', protectAdmin, async (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 5;
   try {
     const orders = await Order.find({})
       .sort({ createdAt: -1 })
       .limit(limit)
       .populate('user', 'name email')
-      .populate('course', 'name');
+      .populate('course', 'name slug');
 
     const data = orders.map((o) => ({
       id: o._id,

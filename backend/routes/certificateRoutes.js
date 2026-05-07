@@ -46,7 +46,7 @@ router.post('/', protectInstructor, certificateValidator, async (req, res) => {
 // @access  Private
 router.get('/my', protect, async (req, res) => {
     try {
-        const certificates = await Certificate.find({ userId: req.user.id })
+        const certificates = await Certificate.find({ userId: req.user.userId })
             .populate('courseId', 'name')
             .sort({ issueDate: -1 });
         res.json(certificates);

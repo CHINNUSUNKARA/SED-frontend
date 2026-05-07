@@ -1,11 +1,26 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 const Course = require('./models/Course');
+const dns =require('dns')
+const connectDB = async (secretId) => {
+  try {
+    let uri = process.env.MONGO_URI;
+    
+    if (!uri) throw new Error("Could not find MONGODB_URI in Secrets or Env.");
 
+    dns.setServers(['8.8.8.8', '8.8.4.4']);
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+    
+    console.log("✅ Server DB Connected via Secrets Manager");
+  } catch (err) {
+    console.error("❌ MongoDB Connection Error:", err.message);
+    if (process.env.NODE_ENV === 'production') process.exit(1);
+  }
+};
 async function testAndFixDB() {
   try {
     console.log('Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGO_URI);
+    connectDB();
     console.log('✅ Connected to MongoDB');
 
     // Check if multi-rotor-drones course exists

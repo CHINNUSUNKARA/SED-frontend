@@ -1,75 +1,63 @@
-
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, Shield, ArrowLeft, User, GraduationCap } from 'lucide-react';
-import { useGoogleLogin } from '@react-oauth/google';
+import { Mail, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { Button } from '../../components/ui/Button';
 import { ViewState } from '../../App';
 import { useAuth } from '../../contexts/AuthContext';
-import { googleLogin as googleLoginService } from '../../services/authService';
 
 interface LoginPageProps {
   onNavigate: (view: ViewState) => void;
 }
+
+const roleToView = (role: string): ViewState => {
+  const r = role.toLowerCase();
+  if (r === 'admin') return 'admin';
+  if (r === 'instructor') return 'instructor-dashboard';
+  return 'student';
+};
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     try {
-      // Login returns user data with role information
       const userData = await login(email, password);
-
-      // Navigate to appropriate dashboard based on user role (case-insensitive comparison)
-      const role = userData.role?.toLowerCase();
-
-      if (role === 'admin') {
-        onNavigate('admin');
-      } else if (role === 'instructor') {
-        onNavigate('instructor-dashboard');
-      } else {
-        onNavigate('student');
-      }
+      onNavigate(roleToView(userData.role));
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Login failed');
+      setError(err?.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const googleLogin = useGoogleLogin({
-    onSuccess: async (codeResponse: any) => {
-      setIsLoading(true);
-      try {
-        const response = await googleLoginService(codeResponse.id_token);
-        // Store token and user info
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        // Redirect to dashboard
-        onNavigate('student-dashboard');
-      } catch (err: any) {
-        setError(err?.response?.data?.message || 'Google login failed');
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    onError: () => {
-      setError('Failed to login with Google');
-    },
-    flow: 'implicit'
-  });
+  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      setError('Google sign-in failed: no credential received.');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+      const userData = await loginWithGoogle(credentialResponse.credential);
+      onNavigate(roleToView(userData.role));
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Google login failed.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Panel - Visual & Benefits (Hidden on mobile) */}
+      {/* Left Panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-slate-900 text-white relative overflow-hidden flex-col justify-between p-16">
-        {/* Background Elements */}
         <div className="absolute inset-0 z-0">
           <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-brand-600/40 via-slate-900 to-slate-900"></div>
           <img
@@ -81,14 +69,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
 
         <div className="relative z-10 w-full">
           <div className="flex flex-col items-center mb-12 w-full">
-            <img
-              src="/logo-sed.png"
-              alt="Scholastic Edu. Depot"
-              className="h-24 w-auto mb-4"
-            />
+            <img src="/logo-sed.png" alt="Scholastic Edu. Depot" className="h-24 w-auto mb-4" />
             <h2 className="text-2xl font-display font-bold text-white">SCHOLASTIC EDU. DEPOT</h2>
           </div>
-
           <div className="flex flex-col items-center text-center">
             <h1 className="text-4xl font-display font-bold mb-6 leading-tight">
               Welcome back, <br />
@@ -100,20 +83,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Quote */}
         <div className="relative z-10 p-6 bg-slate-800/50 backdrop-blur-md rounded-xl border border-slate-700 mt-8">
           <p className="text-slate-300 italic mb-4">
             "Education is the passport to the future, for tomorrow belongs to those who prepare for it today."
           </p>
-          <p className="font-bold text-white text-sm">- Malcolm X</p>
+          <p className="font-bold text-white text-sm">— Malcolm X</p>
         </div>
       </div>
 
-      {/* Right Panel - Login Form */}
+      {/* Right Panel */}
       <div className="w-full lg:w-1/2 bg-white flex flex-col justify-center px-4 sm:px-12 md:px-24 py-12 pt-24 lg:pt-12 overflow-y-auto relative">
-
-        {/* Desktop Back Button */}
         <button
+          type="button"
           onClick={() => onNavigate('home')}
           className="hidden lg:flex absolute top-8 right-8 items-center gap-2 text-slate-500 hover:text-brand-600 transition-colors font-medium"
         >
@@ -121,9 +102,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
           Back to Home
         </button>
 
-        {/* Logo for Desktop Login Panel */}
         <div
-          className="absolute top-8 left-8 flex items-center gap-3 cursor-pointer lg:flex hidden"
+          className="absolute top-8 left-8 lg:flex hidden items-center gap-3 cursor-pointer"
           onClick={() => onNavigate('home')}
         >
           <img src="/logo-sed.png" alt="SED" className="h-10 w-auto" />
@@ -135,25 +115,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
             <h2 className="text-3xl font-display font-bold text-slate-900 mb-2">Log in to your account</h2>
             <p className="text-slate-600">
               Don't have an account?{' '}
-              <button onClick={() => onNavigate('get-started')} className="text-brand-600 font-semibold hover:text-brand-700 hover:underline">
+              <button
+                type="button"
+                onClick={() => onNavigate('get-started')}
+                className="text-brand-600 font-semibold hover:text-brand-700 hover:underline"
+              >
                 Sign up
               </button>
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <div className="space-y-4">
-              <button
-                type="button"
-                onClick={() => googleLogin()}
-                className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading}
-              >
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-                {isLoading ? 'Logging in...' : 'Log in with Google'}
-              </button>
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                {error}
+              </div>
+            )}
+
+            {/* Google Login — uses GoogleLogin component which returns a proper ID token */}
+            <div className="w-full">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('Failed to sign in with Google.')}
+                width="100%"
+                text="continue_with"
+                theme="outline"
+                size="large"
+                shape="rectangular"
+              />
             </div>
 
             <div className="relative flex items-center py-2">
@@ -175,7 +164,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
-                    placeholder="venuthota@gmail.com"
+                    placeholder="you@example.com"
+                    autoComplete="email"
                   />
                 </div>
               </div>
@@ -202,6 +192,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all"
                     placeholder="••••••••"
+                    autoComplete="current-password"
                   />
                 </div>
               </div>
@@ -225,11 +216,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
               className="w-full text-base py-3"
               disabled={isLoading}
             >
-              {isLoading ? 'Logging in...' : 'Log In'}
-              {!isLoading && <ArrowRight size={18} className="ml-2" />}
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                  Logging in...
+                </>
+              ) : (
+                <>
+                  Log In <ArrowRight size={18} className="ml-2" />
+                </>
+              )}
             </Button>
-
-
           </form>
         </div>
       </div>

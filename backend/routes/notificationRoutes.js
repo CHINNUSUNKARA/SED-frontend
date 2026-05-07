@@ -8,7 +8,7 @@ const { protect } = require('../middleware/authMiddleware');
 // @access  Private
 router.get('/', protect, async (req, res) => {
     try {
-        const notifications = await Notification.find({ userId: req.user._id })
+        const notifications = await Notification.find({ userId: req.user.userId })
             .sort({ createdAt: -1 });
         res.json({ success: true, data: notifications });
     } catch (error) {
@@ -23,7 +23,7 @@ router.get('/', protect, async (req, res) => {
 router.put('/mark-read', protect, async (req, res) => {
     try {
         await Notification.updateMany(
-            { userId: req.user._id, read: false },
+            { userId: req.user.userId, read: false },
             { $set: { read: true } }
         );
         res.json({ success: true, message: 'All notifications marked as read' });

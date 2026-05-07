@@ -11,8 +11,20 @@ import {
    Video, Download, Star, TrendingUp, ArrowRight, MoreHorizontal, ChevronLeft, Lock, HelpCircle, Check, Trash2, Upload, AlertCircle, ShoppingCart
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { useAuth } from '../../contexts/AuthContext';
 import { userService, UserProfile, Assignment, ScheduleEvent, Certificate, Notification } from '../../services/userService';
-import { fetchCourses, CourseSummary } from '../../services/courseService';
+import { fetchCourses, fetchCourseDetail, CourseSummary, CourseDetail, initiateEnrollment, verifyEnrollmentPayment, enrollFree } from '../../services/courseService';
+
+// Lazily load the Razorpay checkout script
+const loadRazorpayScript = (): Promise<boolean> =>
+  new Promise((resolve) => {
+    if ((window as any).Razorpay) { resolve(true); return; }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
 
 interface StudentDashboardProps {
    onNavigate: (view: ViewState) => void;
@@ -31,9 +43,12 @@ interface EnrolledCourse extends CourseSummary {
 
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }) => {
+   const { logout: authLogout, user: authUser } = useAuth();
    const [activeTab, setActiveTab] = useState<StudentTab>('dashboard');
    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
    const [viewingCourseId, setViewingCourseId] = useState<string | number | null>(null);
+   const [courseDetail, setCourseDetail] = useState<CourseDetail | null>(null);
+   const [courseDetailLoading, setCourseDetailLoading] = useState(false);
    const [selectedScheduleItem, setSelectedScheduleItem] = useState<ScheduleEvent | null>(null);
    const [submissionLoading, setSubmissionLoading] = useState<string | null>(null); // assignment ID being submitted
    const [isSubmissionModalOpen, setIsSubmissionModalOpen] = useState(false);
@@ -57,6 +72,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
    const [isCourseBrowsingOpen, setIsCourseBrowsingOpen] = useState(false);
    const [availableCourses, setAvailableCourses] = useState<CourseSummary[]>([]);
    const [coursesLoading, setCoursesLoading] = useState(false);
+   const [enrollingCourseId, setEnrollingCourseId] = useState<string | null>(null);
+   const [enrollError, setEnrollError] = useState<string | null>(null);
 
    React.useEffect(() => {
       const fetchData = async () => {
@@ -85,6 +102,96 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
       };
       fetchData();
    }, []);
+
+   // Fetch full course detail whenever user opens a course
+   React.useEffect(() => {
+      if (!viewingCourseId) {
+         setCourseDetail(null);
+         return;
+      }
+      const course = enrolledCourses.find(c => String(c.id) === String(viewingCourseId));
+      if (!course?.slug) return;
+      setCourseDetailLoading(true);
+      fetchCourseDetail(course.slug)
+         .then(detail => setCourseDetail(detail))
+         .catch(err => console.error('Failed to load course detail:', err))
+         .finally(() => setCourseDetailLoading(false));
+   }, [viewingCourseId]);
+
+   // ── Razorpay enrollment ──────────────────────────────────────────────────
+   const handleEnrollCourse = async (course: CourseSummary) => {
+      setEnrollError(null);
+      const amount = course.pricing?.amount ?? 0;
+
+      if (amount === 0) {
+         setEnrollingCourseId(course.id);
+         try {
+            await enrollFree(course.slug);
+            const refreshed = await userService.getEnrolledCourses(true);
+            setEnrolledCourses(refreshed as EnrolledCourse[]);
+            setIsCourseBrowsingOpen(false);
+         } catch (err: any) {
+            setEnrollError(err?.response?.data?.message || 'Enrollment failed. Please try again.');
+         } finally {
+            setEnrollingCourseId(null);
+         }
+         return;
+      }
+
+      setEnrollingCourseId(course.id);
+      try {
+         const scriptLoaded = await loadRazorpayScript();
+         if (!scriptLoaded) {
+            setEnrollError('Failed to load payment gateway. Please check your internet connection.');
+            return;
+         }
+
+         const orderData = await initiateEnrollment(course.slug, amount);
+
+         const options = {
+            key: orderData.keyId,
+            amount: orderData.amount,
+            currency: orderData.currency,
+            name: 'Scholastic Edu. Depot',
+            description: course.title,
+            order_id: orderData.orderId,
+            handler: async (response: any) => {
+               try {
+                  await verifyEnrollmentPayment({
+                     razorpay_order_id: response.razorpay_order_id,
+                     razorpay_payment_id: response.razorpay_payment_id,
+                     razorpay_signature: response.razorpay_signature,
+                     courseSlug: course.slug,
+                     amount,
+                  });
+                  const refreshed = await userService.getEnrolledCourses(true);
+                  setEnrolledCourses(refreshed as EnrolledCourse[]);
+                  setIsCourseBrowsingOpen(false);
+               } catch {
+                  setEnrollError('Payment verification failed. Please contact support with your payment ID: ' + response.razorpay_payment_id);
+               }
+            },
+            prefill: {
+               name: profile?.name ?? authUser?.name ?? '',
+               email: profile?.email ?? authUser?.email ?? '',
+            },
+            theme: { color: '#4F46E5' },
+            modal: {
+               ondismiss: () => setEnrollingCourseId(null),
+            },
+         };
+
+         const rzp = new (window as any).Razorpay(options);
+         rzp.on('payment.failed', (response: any) => {
+            setEnrollError('Payment failed: ' + (response.error?.description || 'Unknown error'));
+            setEnrollingCourseId(null);
+         });
+         rzp.open();
+      } catch (err: any) {
+         setEnrollError(err?.response?.data?.message || 'Failed to initiate payment. Please try again.');
+         setEnrollingCourseId(null);
+      }
+   };
 
    if (loading) {
       return (
@@ -284,16 +391,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
                                     )}
 
                                     {/* Enroll Button */}
+                                    {enrollError && enrollingCourseId === course.id && (
+                                       <p className="text-xs text-red-600 mb-2">{enrollError}</p>
+                                    )}
                                     <Button
                                        className="w-full group-hover:shadow-lg transition-shadow"
-                                       onClick={() => {
-                                          // Here you would implement enrollment logic
-                                          alert(`Enrolling in: ${course.title}`);
-                                          setIsCourseBrowsingOpen(false);
-                                       }}
+                                       disabled={enrollingCourseId === course.id}
+                                       onClick={() => handleEnrollCourse(course)}
                                     >
-                                       <ShoppingCart size={16} className="mr-2" />
-                                       Enroll Now
+                                       {enrollingCourseId === course.id ? (
+                                          <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />Processing...</>
+                                       ) : (
+                                          <><ShoppingCart size={16} className="mr-2" />Enroll Now</>
+                                       )}
                                     </Button>
                                  </div>
                               </div>
@@ -606,7 +716,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
 
                <div className="p-4 border-t border-slate-800">
                   <button
-                     onClick={() => onNavigate('login')}
+                     type="button"
+                     onClick={() => authLogout()}
                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-red-900/20 hover:text-red-500 transition-colors"
                   >
                      <LogOut size={20} />
@@ -1022,17 +1133,47 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
 
                            {(() => {
                               const course = enrolledCourses.find(c => String(c.id) === String(viewingCourseId));
-                              // Default progress details if not available
-                              const details = {
-                                 totalTimeSpent: '2h 15m',
-                                 quizAverage: '0%',
-                                 modules: [
-                                    { id: 1, title: 'Introduction', status: 'In Progress', score: '-', duration: '45m', lessons: 3, current: true },
-                                    { id: 2, title: 'Core Concepts', status: 'Locked', score: '-', duration: '1h 30m', lessons: 5 },
-                                 ]
-                              };
+                              if (!course) return <div className="text-slate-500">Course not found.</div>;
 
-                              if (!course) return <div>Course not found</div>;
+                              if (courseDetailLoading) return (
+                                 <div className="flex items-center justify-center py-24">
+                                    <div className="flex flex-col items-center gap-4">
+                                       <div className="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
+                                       <p className="text-slate-500 text-sm">Loading course details...</p>
+                                    </div>
+                                 </div>
+                              );
+
+                              const detail = courseDetail;
+                              const instructorObj = detail?.instructorObj;
+                              const instructorName = instructorObj?.name || detail?.instructor || course.instructor || 'SED Instructor';
+                              const instructorTitle = instructorObj?.title || 'Instructor';
+                              const instructorBio = instructorObj?.bio;
+                              const instructorAvatar = instructorObj?.imageUrl
+                                 ? instructorObj.imageUrl
+                                 : `https://ui-avatars.com/api/?name=${encodeURIComponent(instructorName)}&background=EBF4FF&color=2563EB`;
+
+                              const curriculum = detail?.curriculum ?? [];
+                              const totalLessons = detail?.lessons ?? (course as any).lessons ?? 0;
+                              const totalHours = detail?.totalHours ? `${detail.totalHours}h` : (detail?.duration ?? (course as any).duration ?? '—');
+                              const completedLessons: string[] = (course as any).completedLessons ?? [];
+
+                              const weeks = curriculum.map((week, idx) => {
+                                 const weekLessons = week.concepts ?? [];
+                                 const completedInWeek = weekLessons.filter(l => completedLessons.includes(l._id)).length;
+                                 const allDone = weekLessons.length > 0 && completedInWeek === weekLessons.length;
+                                 const anyDone = completedInWeek > 0;
+                                 const isLocked = week.isLocked;
+                                 const status = isLocked ? 'Locked' : allDone ? 'Completed' : anyDone ? 'In Progress' : idx === 0 ? 'In Progress' : 'Not Started';
+                                 return { week, status, completedInWeek };
+                              });
+
+                              const whatYouLearn = detail?.learningObjectives ?? detail?.whatYouWillLearn ?? [];
+                              const prerequisites = detail?.prerequisites ?? detail?.requirements ?? [];
+                              const tags = detail?.tags ?? [];
+                              const level = detail?.level ?? (course as any).level;
+                              const language = detail?.language;
+                              const description = detail?.description ?? (course as any).description;
 
                               return (
                                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1040,14 +1181,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
                                     <div className="lg:col-span-2 space-y-6">
                                        {/* Header Card */}
                                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                                          <div className="h-32 bg-slate-900 relative">
-                                             <img src={course.image} alt={course.title} className="w-full h-full object-cover opacity-40" />
+                                          <div className="h-36 bg-slate-900 relative">
+                                             <img src={detail?.bannerUrl || detail?.imageUrl || course.image} alt={course.title} className="w-full h-full object-cover opacity-40" />
                                              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
                                              <div className="absolute bottom-6 left-6 text-white">
-                                                <div className="flex gap-2 mb-2">
-                                                   <span className="bg-brand-600 text-white text-xs font-bold px-2 py-0.5 rounded uppercase">{course.category}</span>
+                                                <div className="flex gap-2 mb-2 flex-wrap">
+                                                   {course.category && <span className="bg-brand-600 text-white text-xs font-bold px-2 py-0.5 rounded uppercase">{course.category}</span>}
+                                                   {level && <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded uppercase">{level}</span>}
+                                                   {(course as any).courseType && <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded uppercase">{(course as any).courseType === 'live' ? 'Live' : 'Self-Paced'}</span>}
                                                 </div>
                                                 <h1 className="text-2xl font-bold">{course.title}</h1>
+                                                {detail?.tagline && <p className="text-white/70 text-sm mt-1">{detail.tagline}</p>}
                                              </div>
                                           </div>
                                           <div className="p-6">
@@ -1064,89 +1208,179 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
                                              <div className="grid grid-cols-3 gap-4 border-t border-slate-100 pt-6">
                                                 <div className="text-center">
                                                    <div className="flex items-center justify-center text-slate-400 mb-1"><Clock size={16} /></div>
-                                                   <p className="font-bold text-slate-900">{details.totalTimeSpent}</p>
-                                                   <p className="text-xs text-slate-500">Time Spent</p>
+                                                   <p className="font-bold text-slate-900">{totalHours}</p>
+                                                   <p className="text-xs text-slate-500">Total Hours</p>
                                                 </div>
                                                 <div className="text-center border-l border-slate-100">
-                                                   <div className="flex items-center justify-center text-slate-400 mb-1"><HelpCircle size={16} /></div>
-                                                   <p className="font-bold text-slate-900">{details.quizAverage}</p>
-                                                   <p className="text-xs text-slate-500">Quiz Avg.</p>
+                                                   <div className="flex items-center justify-center text-slate-400 mb-1"><BookOpen size={16} /></div>
+                                                   <p className="font-bold text-slate-900">{completedLessons.length}<span className="text-slate-400 font-normal text-xs">/{totalLessons}</span></p>
+                                                   <p className="text-xs text-slate-500">Lessons Done</p>
                                                 </div>
                                                 <div className="text-center border-l border-slate-100">
                                                    <div className="flex items-center justify-center text-slate-400 mb-1"><Award size={16} /></div>
-                                                   <p className="font-bold text-slate-900">{course.progress === 100 ? 'Yes' : 'No'}</p>
-                                                   <p className="text-xs text-slate-500">Certified</p>
+                                                   <p className="font-bold text-slate-900">{course.progress === 100 ? 'Earned' : 'Pending'}</p>
+                                                   <p className="text-xs text-slate-500">Certificate</p>
                                                 </div>
                                              </div>
                                           </div>
                                        </div>
 
-                                       {/* Curriculum / Modules */}
+                                       {/* Description */}
+                                       {description && (
+                                          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                                             <h3 className="font-bold text-slate-900 text-lg mb-3">About this Course</h3>
+                                             <p className="text-slate-600 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: description }}></p>
+                                             {tags.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mt-4">
+                                                   {tags.map((tag: string) => (
+                                                      <span key={tag} className="text-xs bg-slate-100 text-slate-600 font-medium px-2.5 py-1 rounded-full">{tag}</span>
+                                                   ))}
+                                                </div>
+                                             )}
+                                          </div>
+                                       )}
+
+                                       {/* What you'll learn */}
+                                       {whatYouLearn.length > 0 && (
+                                          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                                             <h3 className="font-bold text-slate-900 text-lg mb-3">What You'll Learn</h3>
+                                             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {whatYouLearn.map((obj: string, i: number) => (
+                                                   <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                                                      <CheckCircle size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
+                                                      <span>{obj}</span>
+                                                   </li>
+                                                ))}
+                                             </ul>
+                                          </div>
+                                       )}
+
+                                       {/* Prerequisites */}
+                                       {prerequisites.length > 0 && (
+                                          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                                             <h3 className="font-bold text-slate-900 text-lg mb-3">Prerequisites</h3>
+                                             <ul className="space-y-1.5">
+                                                {prerequisites.map((req: string, i: number) => (
+                                                   <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                                                      <ChevronRight size={16} className="text-brand-400 mt-0.5 flex-shrink-0" />
+                                                      <span>{req}</span>
+                                                   </li>
+                                                ))}
+                                             </ul>
+                                          </div>
+                                       )}
+
+                                       {/* Curriculum */}
                                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                                          <div className="p-6 border-b border-slate-100">
-                                             <h3 className="font-bold text-slate-900 text-lg">Curriculum Progress</h3>
+                                          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                             <h3 className="font-bold text-slate-900 text-lg">Curriculum</h3>
+                                             {curriculum.length > 0 && (
+                                                <span className="text-xs text-slate-500 font-medium">{curriculum.length} week{curriculum.length !== 1 ? 's' : ''} · {totalLessons} lessons</span>
+                                             )}
                                           </div>
                                           <div className="divide-y divide-slate-100">
-                                             {details.modules.map((module: any, idx: number) => (
-                                                <div key={idx} className={`p-4 flex items-center gap-4 transition-colors ${module.current ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
-                                                   <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${module.status === 'Completed' ? 'bg-green-100 text-green-600' :
-                                                      module.status === 'In Progress' ? 'bg-brand-100 text-brand-600' :
-                                                         'bg-slate-100 text-slate-400'
-                                                      }`}>
-                                                      {module.status === 'Completed' ? <CheckCircle size={20} /> :
-                                                         module.status === 'In Progress' ? <PlayCircle size={20} /> : <Lock size={20} />}
-                                                   </div>
-
-                                                   <div className="flex-grow">
-                                                      <div className="flex justify-between items-center mb-1">
-                                                         <h4 className={`font-bold text-sm ${module.status === 'Locked' ? 'text-slate-400' : 'text-slate-900'}`}>
-                                                            Module {idx + 1}: {module.title}
-                                                         </h4>
-                                                         <span className={`text-xs font-bold px-2 py-0.5 rounded ${module.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                                                            module.status === 'In Progress' ? 'bg-brand-100 text-brand-700' :
-                                                               'bg-slate-100 text-slate-500'
-                                                            }`}>
-                                                            {module.status}
-                                                         </span>
+                                             {weeks.length > 0 ? weeks.map(({ week, status, completedInWeek }, idx) => {
+                                                const weekLessons = week.concepts ?? [];
+                                                return (
+                                                   <div key={week._id || idx} className={`p-4 flex items-start gap-4 transition-colors ${status === 'In Progress' ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
+                                                      <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${status === 'Completed' ? 'bg-green-100 text-green-600' : status === 'In Progress' ? 'bg-brand-100 text-brand-600' : status === 'Locked' ? 'bg-slate-100 text-slate-300' : 'bg-slate-100 text-slate-400'}`}>
+                                                         {status === 'Completed' ? <CheckCircle size={20} /> : status === 'In Progress' ? <PlayCircle size={20} /> : status === 'Locked' ? <Lock size={20} /> : <BookOpen size={20} />}
                                                       </div>
-                                                      <div className="flex gap-4 text-xs text-slate-500">
-                                                         <span className="flex items-center gap-1"><BookOpen size={12} /> {module.lessons} Lessons</span>
-                                                         <span className="flex items-center gap-1"><Clock size={12} /> {module.duration}</span>
-                                                         {module.score !== '-' && (
-                                                            <span className="flex items-center gap-1 font-medium text-slate-700">Quiz Score: {module.score}</span>
-                                                         )}
+                                                      <div className="flex-grow min-w-0">
+                                                         <div className="flex justify-between items-start mb-1 gap-2">
+                                                            <h4 className={`font-bold text-sm ${status === 'Locked' ? 'text-slate-400' : 'text-slate-900'}`}>
+                                                               Week {week.weekNumber}: {week.title}
+                                                            </h4>
+                                                            <span className={`flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded ${status === 'Completed' ? 'bg-green-100 text-green-700' : status === 'In Progress' ? 'bg-brand-100 text-brand-700' : status === 'Locked' ? 'bg-slate-100 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                                               {status}
+                                                            </span>
+                                                         </div>
+                                                         {week.description && <p className="text-xs text-slate-500 mb-2">{week.description}</p>}
+                                                         <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+                                                            <span className="flex items-center gap-1"><BookOpen size={12} /> {weekLessons.length} lesson{weekLessons.length !== 1 ? 's' : ''}</span>
+                                                            {weekLessons.length > 0 && <span className="flex items-center gap-1"><CheckCircle size={12} /> {completedInWeek}/{weekLessons.length} done</span>}
+                                                            {week.quizzes?.length > 0 && <span className="flex items-center gap-1"><HelpCircle size={12} /> {week.quizzes.length} quiz</span>}
+                                                            {week.assignments?.length > 0 && <span className="flex items-center gap-1"><FileText size={12} /> {week.assignments.length} assignment</span>}
+                                                         </div>
                                                       </div>
                                                    </div>
+                                                );
+                                             }) : (
+                                                <div className="p-8 text-center text-slate-400 text-sm">
+                                                   <BookOpen size={32} className="mx-auto mb-3 text-slate-200" />
+                                                   <p>Curriculum not yet published for this course.</p>
                                                 </div>
-                                             ))}
+                                             )}
                                           </div>
                                        </div>
                                     </div>
 
-                                    {/* Sidebar Info */}
+                                    {/* Sidebar */}
                                     <div className="space-y-6">
-                                       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-                                          <h3 className="font-bold text-slate-900 mb-4">Instructor</h3>
-                                          <div className="flex items-center gap-3 mb-4">
-                                             <div className="w-12 h-12 rounded-full bg-slate-200">
-                                                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(course.instructor || 'SED')}&background=EBF4FF&color=2563EB`} alt={course.instructor} className="w-full h-full rounded-full" />
+                                       {/* Course Meta */}
+                                       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 space-y-3">
+                                          <h3 className="font-bold text-slate-900 mb-2">Course Info</h3>
+                                          {(course as any).enrolledAt && (
+                                             <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Enrolled</span>
+                                                <span className="font-medium text-slate-800">{new Date((course as any).enrolledAt).toLocaleDateString()}</span>
                                              </div>
-                                             <div>
-                                                <p className="font-bold text-slate-900 text-sm">{course.instructor}</p>
-                                                <p className="text-xs text-slate-500">Senior Instructor</p>
+                                          )}
+                                          {(course as any).lastAccessed && (
+                                             <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Last Accessed</span>
+                                                <span className="font-medium text-slate-800">{new Date((course as any).lastAccessed).toLocaleDateString()}</span>
                                              </div>
-                                          </div>
-                                          <Button variant="outline" size="sm" className="w-full">View Profile</Button>
+                                          )}
+                                          {language && (
+                                             <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Language</span>
+                                                <span className="font-medium text-slate-800">{language}</span>
+                                             </div>
+                                          )}
+                                          {level && (
+                                             <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Level</span>
+                                                <span className="font-medium text-slate-800 capitalize">{level}</span>
+                                             </div>
+                                          )}
+                                          {detail?.certificationAvailable && (
+                                             <div className="flex justify-between text-sm">
+                                                <span className="text-slate-500">Certificate</span>
+                                                <span className="font-medium text-green-600 flex items-center gap-1"><CheckCircle size={13} /> Included</span>
+                                             </div>
+                                          )}
                                        </div>
 
+                                       {/* Instructor */}
+                                       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                                          <h3 className="font-bold text-slate-900 mb-4">Instructor</h3>
+                                          <div className="flex items-center gap-3 mb-3">
+                                             <img src={instructorAvatar} alt={instructorName} className="w-12 h-12 rounded-full object-cover border border-slate-200" />
+                                             <div>
+                                                <p className="font-bold text-slate-900 text-sm">{instructorName}</p>
+                                                <p className="text-xs text-slate-500">{instructorTitle}</p>
+                                             </div>
+                                          </div>
+                                          {instructorBio && <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">{instructorBio}</p>}
+                                          {instructorObj?.rating != null && (
+                                             <div className="mt-3 flex items-center gap-1 text-xs text-amber-500 font-bold">
+                                                <Star size={13} fill="currentColor" /> {instructorObj.rating.toFixed(1)} instructor rating
+                                             </div>
+                                          )}
+                                       </div>
+
+                                       {/* Continue banner */}
                                        <div className="bg-brand-600 rounded-xl shadow-lg p-6 text-white relative overflow-hidden">
                                           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-1/2 -translate-y-1/2 blur-2xl"></div>
-                                          <h3 className="font-bold text-lg mb-2 relative z-10">Keep going! 🚀</h3>
+                                          <h3 className="font-bold text-lg mb-1 relative z-10">{course.progress === 100 ? 'Course Complete!' : 'Keep going!'}</h3>
                                           <p className="text-brand-100 text-sm mb-4 relative z-10">
-                                             You are doing great. Finish the next module to unlock a new badge.
+                                             {course.progress === 100
+                                                ? 'You have completed this course. Download your certificate!'
+                                                : `Next: ${(course as any).nextLesson || 'Continue where you left off'}`}
                                           </p>
                                           <Button size="sm" className="w-full bg-white text-brand-600 hover:bg-brand-50 border-none relative z-10">
-                                             Continue Learning
+                                             {course.progress === 100 ? 'Review Course' : 'Continue Learning'}
                                           </Button>
                                        </div>
 
@@ -1158,7 +1392,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
                                              <h3 className="font-bold text-slate-900 mb-2">Congratulations!</h3>
                                              <p className="text-sm text-slate-500 mb-4">You have successfully completed this course.</p>
                                              <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white border-none">
-                                                Download Certificate
+                                                <Download size={14} className="mr-2" /> Download Certificate
                                              </Button>
                                           </div>
                                        )}
@@ -1396,7 +1630,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
                            </div>
                            <div>
                               <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-                              <input type="email" defaultValue={profile.email} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-slate-50" disabled />
+                              <input type="email" title="Email Address" defaultValue={profile.email} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-slate-50" disabled />
                            </div>
                            <div className="md:col-span-2">
                               <label className="block text-sm font-medium text-slate-700 mb-1">Bio</label>
@@ -1414,7 +1648,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onNavigate }
                            {['Email notifications for new assignments', 'Weekly progress report', 'Promotional offers and course recommendations'].map((label, i) => (
                               <div key={i} className="flex items-center justify-between">
                                  <span className="text-slate-700 text-sm">{label}</span>
-                                 <input type="checkbox" defaultChecked={i < 2} className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500" />
+                                 <input type="checkbox" title={label} defaultChecked={i < 2} className="h-4 w-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500" />
                               </div>
                            ))}
                         </div>

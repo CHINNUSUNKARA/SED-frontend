@@ -7,7 +7,7 @@ const { protect, protectAdmin, authorizeRoles } = require('../middleware/authMid
 const { registerValidator, loginValidator, updatePasswordValidator, deleteUserValidator } = require('../middleware/validators');
 const sendEmail = require('../utils/sendEmail');
 const { getVerificationEmailTemplate } = require('../utils/emailTemplates');
-
+const {verifyToken} = require('../utils/verifyjwt');
 const router = express.Router();
 
 // CSRF token endpoint
@@ -225,9 +225,9 @@ router.post('/resend-verification', async (req, res) => {
 
 
 // POST /api/auth/login
-router.post('/login', loginValidator, async (req, res) => {
+router.post('/login', async (req, res) => {
     const { email, password } = req.body;
-
+    console.log('api hitted')
     try {
         console.log(`Login attempt for email: ${email}`);
 
@@ -433,9 +433,10 @@ router.post('/logout', (req, res) => {
 });
 
 // GET /api/auth/me - Get current user's profile
-router.get('/me', protect, async (req, res) => {
+router.get('/me', verifyToken, async (req, res) => {
     try {
-        const user = await User.findById(req.user.userId).select('-password -__v');
+        console.log(`Fetching profile for user ID: ${req.user.id}`);
+        const user = await User.findById(req.user.id).select('-password -__v');
 
         if (!user) {
             return res.status(404).json({

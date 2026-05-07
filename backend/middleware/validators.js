@@ -46,16 +46,75 @@ const deleteUserValidator = [
 
 
 // --- MODEL VALIDATORS ---
-const courseValidator = [
-    body('name').trim().notEmpty().escape().withMessage('Course name is required'),
-    body('slug').trim().notEmpty().matches(/^[a-z0-9-]+$/).withMessage('Slug must be lowercase alphanumeric with hyphens'),
-    body('pricing.amount').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
-    body('category').notEmpty().escape().withMessage('Category is required'),
-    body('tagline').trim().notEmpty().escape().withMessage('Tagline is required'),
-    body('description').trim().notEmpty().withMessage('Description is required'), // Not escaped to allow rich text/markdown
+
+// Shared course field rules (reused across create / update validators)
+const _courseFieldRules = [
+    body('slug')
+        .optional({ checkFalsy: true })
+        .trim().toLowerCase()
+        .matches(/^[a-z0-9-]+$/).withMessage('Slug must be lowercase alphanumeric with hyphens'),
+    body('courseType')
+        .optional()
+        .isIn(['live', 'self-paced']).withMessage('courseType must be "live" or "self-paced"'),
+    body('level')
+        .optional()
+        .isIn(['beginner', 'intermediate', 'advanced', 'all']).withMessage('Invalid level value'),
+    body('pricing.amount')
+        .optional()
+        .isFloat({ min: 0 }).withMessage('Price must be a non-negative number'),
+    body('pricing.currency')
+        .optional({ checkFalsy: true })
+        .trim().toUpperCase()
+        .matches(/^[A-Z]{3}$/).withMessage('Currency must be a valid 3-letter ISO 4217 code (e.g. INR, USD)'),
+    body('pricing.discountedAmount')
+        .optional()
+        .isFloat({ min: 0 }).withMessage('Discounted price must be a non-negative number'),
+    body('pricing.inclusions').optional().isArray().withMessage('Pricing inclusions must be an array'),
+    body('pricing.isFree').optional().isBoolean().withMessage('pricing.isFree must be boolean'),
     body('imageUrl').optional({ checkFalsy: true }).isURL().withMessage('Image URL must be a valid URL'),
+    body('bannerUrl').optional({ checkFalsy: true }).isURL().withMessage('Banner URL must be a valid URL'),
+    body('promoVideoUrl').optional({ checkFalsy: true }).isURL().withMessage('Promo video URL must be a valid URL'),
+    body('totalHours').optional().isFloat({ min: 0 }).withMessage('totalHours must be a non-negative number'),
+    body('instructor.email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Instructor email is invalid'),
+    body('curriculum').optional().isArray().withMessage('Curriculum must be an array'),
+    body('highlights').optional().isArray().withMessage('Highlights must be an array'),
+    body('learningObjectives').optional().isArray().withMessage('learningObjectives must be an array'),
+    body('prerequisites').optional().isArray().withMessage('prerequisites must be an array'),
+    body('targetAudience').optional().isArray().withMessage('targetAudience must be an array'),
+    body('tags').optional().isArray().withMessage('tags must be an array'),
+    body('faqs').optional().isArray().withMessage('FAQs must be an array'),
+    body('projects').optional().isArray().withMessage('Projects must be an array'),
+    body('certification.available').optional().isBoolean().withMessage('certification.available must be boolean'),
+    body('liveDetails.maxStudents').optional().isInt({ min: 1 }).withMessage('maxStudents must be a positive integer'),
+    body('requiresEnrollment').optional().isBoolean().withMessage('requiresEnrollment must be boolean'),
+    body('allowFreePreview').optional().isBoolean().withMessage('allowFreePreview must be boolean'),
+];
+
+// POST – required fields enforced
+const courseCreateValidator = [
+    body('name').trim().notEmpty().withMessage('Course name is required'),
+    body('slug')
+        .trim().notEmpty().withMessage('Slug is required')
+        .toLowerCase()
+        .matches(/^[a-z0-9-]+$/).withMessage('Slug must be lowercase alphanumeric with hyphens'),
+    body('category').trim().notEmpty().withMessage('Category is required'),
+    body('courseType')
+        .notEmpty().withMessage('courseType is required')
+        .isIn(['live', 'self-paced']).withMessage('courseType must be "live" or "self-paced"'),
+    ..._courseFieldRules,
     validate
 ];
+
+// PUT – all fields optional (partial or full update)
+const courseUpdateValidator = [
+    body('name').optional().trim().notEmpty().withMessage('Course name cannot be empty'),
+    body('category').optional().trim().notEmpty().withMessage('Category cannot be empty'),
+    ..._courseFieldRules,
+    validate
+];
+
+// Legacy alias kept for backward compatibility with any code that still imports it
+const courseValidator = courseCreateValidator;
 
 const partnerValidator = [
     body('name').trim().notEmpty().escape().withMessage('Partner name is required'),
@@ -148,6 +207,8 @@ module.exports = {
     loginValidator,
     updatePasswordValidator,
     deleteUserValidator,
+    courseCreateValidator,
+    courseUpdateValidator,
     courseValidator,
     partnerValidator,
     serviceValidator,

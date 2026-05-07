@@ -186,40 +186,4 @@ router.post('/users/suspend', protectAdmin, async (req, res) => {
   }
 });
 
-// -----------------------------------------------------------------------------
-// GET /api/admin/settings
-// -----------------------------------------------------------------------------
-router.get('/settings', protectAdmin, async (req, res) => {
-  try {
-    const settings = await Settings.getSettings();
-    res.json({ success: true, data: settings });
-  } catch (error) {
-    console.error('Get settings error:', error);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
-});
-
-// -----------------------------------------------------------------------------
-// PUT /api/admin/settings
-// -----------------------------------------------------------------------------
-router.put('/settings', protectAdmin, async (req, res) => {
-  try {
-    const filters = req.body;
-    let settings = await Settings.findOne();
-    if (!settings) settings = new Settings();
-
-    // Deep merge or specific field update
-    if (filters.general) settings.general = { ...settings.general, ...filters.general };
-    if (filters.notifications) settings.notifications = { ...settings.notifications, ...filters.notifications };
-    if (filters.security) settings.security = { ...settings.security, ...filters.security };
-    if (filters.billing) settings.billing = { ...settings.billing, ...filters.billing };
-
-    await settings.save();
-    res.json({ success: true, data: settings, message: 'Settings updated successfully' });
-  } catch (error) {
-    console.error('Update settings error:', error);
-    res.status(500).json({ success: false, message: 'Server Error' });
-  }
-});
-
 module.exports = router;

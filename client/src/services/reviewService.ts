@@ -1,4 +1,4 @@
-import api from '../lib/api';
+import api, { get, clearCache } from '../lib/api';
 
 export interface CourseReview {
   id: string;
@@ -21,10 +21,14 @@ export interface Testimonial {
   courseName?: string;
 }
 
-// Fetch course reviews
-export const fetchCourseReviews = async (limit = 10): Promise<CourseReview[]> => {
+// Fetch course reviews with caching
+export const fetchCourseReviews = async (limit = 10, skipCache = false): Promise<CourseReview[]> => {
   try {
-    const response = await api.get(`/reviews?limit=${limit}`);
+    const response = await get(`/reviews`, {
+      params: { limit },
+      skipCache,
+      timeout: 8000
+    });
     return response.data;
   } catch (error) {
     console.error('Error fetching course reviews:', error);
@@ -52,14 +56,16 @@ export const fetchCourseReviews = async (limit = 10): Promise<CourseReview[]> =>
   }
 };
 
-// Fetch testimonials
-export const fetchTestimonials = async (): Promise<Testimonial[]> => {
+// Fetch testimonials with caching
+export const fetchTestimonials = async (skipCache = false): Promise<Testimonial[]> => {
   try {
-    const response = await api.get('/testimonials');
+    const response = await get('/testimonials', {
+      skipCache,
+      timeout: 8000
+    });
     return response.data;
   } catch (error) {
     console.error('Error fetching testimonials:', error);
-    // Return empty array if API fails - better than hardcoded data
     return [];
   }
 };
@@ -67,10 +73,56 @@ export const fetchTestimonials = async (): Promise<Testimonial[]> => {
 // Submit a course review
 export const submitCourseReview = async (reviewData: Omit<CourseReview, 'id' | 'date'>): Promise<CourseReview> => {
   try {
-    const response = await api.post('/reviews', reviewData);
+    const response = await api.post('/reviews', reviewData, { timeout: 10000 });
+    
+    // Clear reviews cache
+    clearCache('reviews');
+    
     return response.data;
   } catch (error) {
     console.error('Error submitting review:', error);
     throw error;
+  }
+};
+
+// Update a review
+export const updateCourseReview = async (id: string, reviewData: Partial<CourseReview>): Promise<CourseReview> => {
+  try {
+    const response = await api.put(`/reviews/${id}`, reviewData, { timeout: 10000 });
+    
+    // Clear reviews cache
+    clearCache('reviews');
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error updating review:', error);
+    throw error;
+  }
+};
+
+// Delete a review
+export const deleteCourseReview = async (id: string): Promise<void> => {
+  try {
+    await api.delete(`/reviews/${id}`, { timeout: 5000 });
+    
+    // Clear reviews cache
+    clearCache('reviews');
+  } catch (error) {
+    console.error('Error deleting review:', error);
+    throw error;
+  }
+};
+
+// Get reviews for a specific course
+export const getCourseReviews = async (courseId: string, skipCache = false): Promise<CourseReview[]> => {
+  try {
+    const response = await get(`/courses/${courseId}/reviews`, {
+      skipCache,
+      timeout: 8000
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching course reviews:', error);
+    return [];
   }
 };

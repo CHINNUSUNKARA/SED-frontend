@@ -8,7 +8,7 @@ const setCache = require('../middleware/cacheMiddleware');
 const router = express.Router();
 
 // GET /api/partners
-router.get('/', setCache(3600), async (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const partners = await Partner.find({});
         res.json(partners);

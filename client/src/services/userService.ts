@@ -1,4 +1,4 @@
-import api from '../lib/api';
+import api, { get, clearCache } from '../lib/api';
 
 export interface UserProfile {
     _id: string;
@@ -48,48 +48,90 @@ export interface ScheduleEvent {
 }
 
 export const userService = {
-    getProfile: async (): Promise<UserProfile> => {
-        const response = await api.get('/user/profile');
+    getProfile: async (skipCache = false): Promise<UserProfile> => {
+        const response = await get('/user/profile', {
+            skipCache,
+            timeout: 8000
+        });
         return response.data;
     },
 
-    getEnrolledCourses: async (): Promise<any[]> => {
-        const response = await api.get('/user/enrolled-courses');
+    getEnrolledCourses: async (skipCache = false): Promise<any[]> => {
+        const response = await get('/user/enrolled-courses', {
+            skipCache,
+            timeout: 10000
+        });
         return response.data;
     },
 
-    getAssignments: async (): Promise<Assignment[]> => {
-        const response = await api.get('/user/assignments');
+    getAssignments: async (skipCache = false): Promise<Assignment[]> => {
+        const response = await get('/user/assignments', {
+            skipCache,
+            timeout: 8000
+        });
         return response.data;
     },
 
-    getNotifications: async (): Promise<Notification[]> => {
-        const response = await api.get('/user/notifications');
+    getNotifications: async (skipCache = false): Promise<Notification[]> => {
+        const response = await get('/user/notifications', {
+            skipCache,
+            timeout: 8000
+        });
         return response.data;
     },
 
     markNotificationAsRead: async (id: string) => {
-        const response = await api.put(`/user/notifications/${id}/read`);
+        const response = await api.put(`/user/notifications/${id}/read`, {}, { timeout: 5000 });
+        
+        // Clear notifications cache
+        clearCache('notifications');
+        
         return response.data;
     },
 
     deleteNotification: async (id: string) => {
-        const response = await api.delete(`/user/notifications/${id}`);
+        const response = await api.delete(`/user/notifications/${id}`, { timeout: 5000 });
+        
+        // Clear notifications cache
+        clearCache('notifications');
+        
         return response.data;
     },
 
-    getSchedule: async (): Promise<ScheduleEvent[]> => {
-        const response = await api.get('/user/schedule');
+    getSchedule: async (skipCache = false): Promise<ScheduleEvent[]> => {
+        const response = await get('/user/schedule', {
+            skipCache,
+            timeout: 8000
+        });
         return response.data;
     },
 
-    getCertificates: async (): Promise<Certificate[]> => {
-        const response = await api.get('/user/certificates');
+    getCertificates: async (skipCache = false): Promise<Certificate[]> => {
+        const response = await get('/user/certificates', {
+            skipCache,
+            timeout: 8000
+        });
         return response.data;
     },
 
     submitAssignment: async (id: string, textSubmission: string, fileUrl?: string) => {
-        const response = await api.post(`/assignments/${id}/submit`, { textSubmission, fileUrl });
+        const response = await api.post(`/assignments/${id}/submit`, { 
+            textSubmission, 
+            fileUrl 
+        }, { timeout: 15000 });
+        
+        // Clear assignments cache
+        clearCache('assignments');
+        
+        return response.data;
+    },
+
+    updateProfile: async (profileData: Partial<UserProfile>) => {
+        const response = await api.put('/user/profile', profileData, { timeout: 10000 });
+        
+        // Clear profile cache
+        clearCache('profile');
+        
         return response.data;
     }
 };
