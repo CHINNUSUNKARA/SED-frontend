@@ -154,37 +154,6 @@ const port = process.env.PORT || 5000;
 //   frameguard: { action: 'deny' }
 // }));
 
-// Apply compression to gzip responses for better performance in production
-app.use(compression());
-
-// CORS Configuration
-const allowedOrigins = ['*']; // Allow all origins for now, but you can specify your frontend URL(s) here for production
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-    } else {
-      console.log('Blocked by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Access-Control-Request-Method', 'Access-Control-Request-Headers'],
-  exposedHeaders: ['set-cookie'],
-  maxAge: 86400 // 24 hours
-};
-
-// Apply CORS with the specified options
-app.use(cors(corsOptions));
-
-// Handle preflight requests
-app.options('*', cors(corsOptions));
-
 // ---------------- PARSERS ----------------
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
