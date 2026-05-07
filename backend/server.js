@@ -1,19 +1,12 @@
-// Load environment variables first (Docker env vars take precedence)
 const envPath = require('path').resolve(__dirname, '.env');
 require('dotenv').config({ path: envPath, override: false });
 const path = require('path');
 const resolve = path.resolve;
 const join = path.join;
 const dns = require('dns')
-// Ensure the correct embedding model is used
 process.env.EMBEDDING_MODEL = 'jinaai/jina-embeddings-v2-base-en';
 
 const MONGO_URI = process.env.MONGO_URI;
-
-if (!MONGO_URI) {
-  console.error('MongoDB connection string is not defined in .env file');
-  process.exit(1);
-}
 
 // Core dependencies
 const express = require('express');
@@ -54,18 +47,6 @@ const Service = require('./models/Service.js');
 const BlogPost = require('./models/BlogPost.js');
 const User = require('./models/User.js');
 const SuccessStory = require('./models/SuccessStory.js');
-let data = { courses: [], partners: [], services: [], blogPosts: [] };
-try {
-  data = require('./data.js');
-} catch (error) {
-  console.warn("Warning: ./data.js not found, skipping initial data seeding.");
-}
-
-const initialCourses = data.courses || [];
-const initialPartners = data.partners || [];
-const initialServices = data.services || [];
-const initialBlogPosts = data.blogPosts || [];
-
 const initialSuccessStories = [
   {
     name: "Sarah Jenkins",
@@ -110,156 +91,16 @@ const initialSuccessStories = [
 ];
 
 const app = express();
-// Enable trust proxy for Render (required for rate limiting to work correctly behind load balancers)
-app.set('trust proxy', 1);
 const port = process.env.PORT || 5000;
 
 
 // ---------------- CORS ----------------
 app.use(cors({ origin: '*' }));
 
-// ---------------- SECURITY & PERFORMANCE MIDDLEWARE ----------------
-// app.use(helmet({
-//   contentSecurityPolicy: {
-//     directives: {
-//       defaultSrc: ["'self'"],
-//       scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
-//       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-//       imgSrc: [
-//         "'self'", "data:", "blob:",
-//         "https://res.cloudinary.com",
-//         "https://*.googleusercontent.com",
-//         "https://images.unsplash.com",
-//         "https://ui-avatars.com",
-//         "https://i.pravatar.cc",
-//         "https://www.svgrepo.com",
-//         "https://www.transparenttextures.com",
-//         "https://www.google.com",
-//         "https://img-prod-cms-rt-microsoft-com.akamaized.net",
-//         "https://www.microsoft.com",
-//         "https://upload.wikimedia.org"
-//       ],
-//       connectSrc: ["'self'", "https://*.googleapis.com", "https://*.stripe.com", "https://accounts.google.com"],
-//       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-//       objectSrc: ["'none'"],
-//       mediaSrc: ["'self'"],
-//       frameSrc: ["'self'", "https://js.stripe.com", "https://accounts.google.com"]
-//     },
-//   },
-//   crossOriginResourcePolicy: { policy: "cross-origin" },
-//   crossOriginEmbedderPolicy: false,
-//   crossOriginOpenerPolicy: { policy: "same-origin" },
-//   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-//   xssFilter: true,
-//   noSniff: true,
-//   ieNoOpen: true,
-//   hidePoweredBy: true,
-//   frameguard: { action: 'deny' }
-// }));
-
 // ---------------- PARSERS ----------------
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
-
-// // Enable ETag for caching
-// app.set('etag', 'strong');
-
-// ---------------- CSRF SETUP ----------------
-// Configure CSRF protection
-// const csrfProtection = csrf({
-//   cookie: {
-//     key: '_csrf',
-//     httpOnly: true, // The cookie is not accessible via JavaScript
-//     secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
-//     sameSite: 'lax', // Protection against CSRF attacks
-//     maxAge: 24 * 60 * 60 * 1000 // 24 hours
-//   }
-// });
-
-// Apply CSRF protection selectively. We do NOT apply the CSRF middleware globally
-// because that would validate every request before our exclusion logic runs
-// (causing POSTs like register to be rejected). Instead, call `csrfProtection`
-// inside a conditional middleware so we can exclude specific routes.
-// app.use((req, res, next) => {
-//   // List of routes to exclude from CSRF protection
-//   // Note: we DO NOT exclude the csrf-token endpoint because it must run
-//   // the CSRF middleware to generate and attach a token on GET requests.
-//   const csrfExcluded = [
-//     '/api/auth/login',
-//     '/api/auth/register',
-//     '/api/auth/google-login',
-//     '/api/contact', // Public contact form
-//     '/api/health', // Add health check endpoint
-//     '/api/ai/chat' // Exclude AI chat endpoint from CSRF
-//   ];
-
-//   if (csrfExcluded.some(path => req.path.startsWith(path))) {
-//     return next();
-//   }
-
-//   // For all non-excluded routes, run the CSRF middleware. For safe methods
-//   // (GET/HEAD/OPTIONS) csurf will attach `req.csrfToken()` without rejecting;
-//   // for unsafe methods (POST/PUT/DELETE) it will validate the token.
-// });
-
-// CSRF token endpoint (used by frontend)
-// app.get('/api/auth/csrf-token', (req, res) => {
-//   try {
-//     // Generate and return CSRF token
-//     const csrfToken = req.csrfToken();
-//     if (!csrfToken) {
-//       throw new Error('CSRF token generation failed');
-//     }
-
-//     // Set a non-httpOnly cookie for the frontend to read
-//     res.cookie('XSRF-TOKEN', csrfToken, {
-//       secure: process.env.NODE_ENV === 'production',
-//       sameSite: 'lax',
-//       path: '/',
-//       httpOnly: false // Allow client-side JavaScript to read this cookie
-//     });
-
-//     res.json({ csrfToken });
-//   } catch (error) {
-//     console.error('Error generating CSRF token:', error);
-//     res.status(500).json({
-//       error: 'Failed to generate CSRF token',
-//       details: process.env.NODE_ENV === 'development' ? error.message : undefined
-//     });
-//   }
-// });
-
-// // --------------- LOGGING ----------------
-// app.use((req, res, next) => {
-//   const start = Date.now();
-//   res.on("finish", () =>
-//     console.log(`[${req.method}] ${req.originalUrl} - ${res.statusCode} (${Date.now() - start}ms)`)
-//   );
-//   next();
-// });
-
-// --------------- RATE LIMITING ----------------
-// More generous rate limits for better performance
-// app.use('/api', rateLimit({ 
-//   windowMs: 15 * 60 * 1000, 
-//   max: 500, // Increased from 200
-//   standardHeaders: true,
-//   legacyHeaders: false,
-//   skip: (req) => {
-//     // Skip rate limiting for health checks and static assets
-//     return req.path === '/api/health' || req.path.startsWith('/uploads');
-//   }
-// }));
-
-// app.use('/api/auth', rateLimit({ 
-//   windowMs: 15 * 60 * 1000, 
-//   max: 100, // Increased from 50
-//   standardHeaders: true,
-//   legacyHeaders: false
-// }));
-
-// --------------- STATIC ----------------
 app.use('/uploads', express.static(join(__dirname, 'uploads')));
 
 app.use("/api/auth", authRoutes);
@@ -286,15 +127,10 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/testimonials", testimonialRoutes);
 app.use("/api/events", eventRoutes);
 
-// Make broadcastEvent available globally for course updates
 global.broadcastEvent = broadcastEvent;
 
 // ---------------- ERROR HANDLER ----------------
 app.use('/api', notFound);
-app.use(errorHandler);
-
-// ---------------- START SERVER & DB LOGIC ----------------
-
 let server; // Define server globally so error handlers can access it
 
 const connectDB = async () => {
@@ -331,9 +167,6 @@ const connectDB = async () => {
 
 const startServer = async () => {
   await connectDB();
-  // await seedData(); // Execute the seeding logic you defined
-  
-  // Start Express listener
   server = app.listen(port, () => {
     const environment = process.env.NODE_ENV || 'development';
     console.log(`=======================================================`);
@@ -343,7 +176,6 @@ const startServer = async () => {
   });
 };
 
-// Start the sequence
 startServer();
 
 module.exports = app;
