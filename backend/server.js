@@ -158,15 +158,7 @@ const port = process.env.PORT || 5000;
 app.use(compression());
 
 // CORS Configuration
-const allowedOrigins = [
-  'http://localhost:8080',
-  'http://localhost:5173',
-  process.env.CLIENT_URL,
-  process.env.CLIENT_URL ? process.env.CLIENT_URL.replace('https://', 'https://www.') : '',
-  'https://scholastic-edu-depot.com',
-  'https://sed-frontend.onrender.com','https://sed-frontend-eight.vercel.app/',
-  'https://www.scholastic-edu-depot.com'
-].filter(Boolean);
+const allowedOrigins = ['*']; // Allow all origins for now, but you can specify your frontend URL(s) here for production
 
 const corsOptions = {
   origin: function (origin, callback) {
