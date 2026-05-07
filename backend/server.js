@@ -115,6 +115,9 @@ app.set('trust proxy', 1);
 const port = process.env.PORT || 5000;
 
 
+// ---------------- CORS ----------------
+app.use(cors({ origin: '*' }));
+
 // ---------------- SECURITY & PERFORMANCE MIDDLEWARE ----------------
 // app.use(helmet({
 //   contentSecurityPolicy: {
@@ -339,35 +342,6 @@ const startServer = async () => {
     console.log(`=======================================================`);
   });
 };
-
-// Handle unhandled promise rejections safely
-process.on('unhandledRejection', (err) => {
-  console.error('❌ Unhandled Rejection:', err);
-  if (server) {
-    server.close(() => process.exit(1));
-  } else {
-    process.exit(1);
-  }
-});
-
-// Production Graceful Shutdown (SIGTERM/SIGINT)
-const gracefulShutdown = () => {
-  console.log('\n⚠️ Received kill signal, shutting down gracefully...');
-  if (server) {
-    server.close(() => {
-      console.log('🛑 HTTP server closed.');
-      mongoose.connection.close(false).then(() => {
-        console.log('🛑 MongoDB connection closed.');
-        process.exit(0);
-      });
-    });
-  } else {
-    process.exit(0);
-  }
-};
-
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
 
 // Start the sequence
 startServer();
