@@ -164,6 +164,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   process.env.CLIENT_URL ? process.env.CLIENT_URL.replace('https://', 'https://www.') : '',
   'https://scholastic-edu-depot.com',
+  'https://sed-frontend.onrender.com','https://sed-frontend-eight.vercel.app/',
   'https://www.scholastic-edu-depot.com'
 ].filter(Boolean);
 
