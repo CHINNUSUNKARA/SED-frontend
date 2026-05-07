@@ -7,7 +7,8 @@ import {
     Bell, Search, Plus, MoreHorizontal, Video, Edit2, MessageCircle, Star,
     TrendingUp, Clock, CheckCircle, Menu, X, DollarSign, Eye, Award, Upload, Image as ImageIcon, Save,
     ChevronLeft, Trash2, GripVertical, BarChart2, MousePointer, PlayCircle, Lock, Mail, Filter, ChevronRight,
-    Bold, Italic, Underline, List, AlignLeft, Link2, Type
+    Bold, Italic, Underline, List, AlignLeft, Link2, Type,
+    ChevronDown
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { COURSE_CATEGORIES } from '../../constants';

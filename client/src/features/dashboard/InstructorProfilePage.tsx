@@ -81,7 +81,8 @@ export const InstructorProfilePage: React.FC<InstructorProfilePageProps> = ({ in
       instructor: instructor?.name || '',
       category: course.category,
       whatYouWillLearn: [], // Can fetch detail if needed
-      requirements: []
+      requirements: [],
+      courseType: 'live'
    });
 
    if (loading) return <div className="pt-32 text-center">Loading profile...</div>;
